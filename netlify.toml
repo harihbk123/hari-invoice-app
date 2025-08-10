@@ -6,13 +6,15 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_FLAGS = "--legacy-peer-deps"
+  # Don't set NODE_ENV to production during build to allow devDependencies
+  NPM_CONFIG_PRODUCTION = "false"
 
 # Production context
 [context.production]
   command = "npm run build"
   
 [context.production.environment]
-  NODE_ENV = "production"
+  # NODE_ENV will be set to production after build
   NEXT_TELEMETRY_DISABLED = "1"
 
 # Branch deploys (staging)
@@ -54,35 +56,11 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Edge functions
-[[edge_functions]]
-  function = "rate-limit"
-  path = "/api/*"
+# Plugin configuration
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 # Environment variables (set these in Netlify dashboard)
 # NEXT_PUBLIC_SUPABASE_URL
 # NEXT_PUBLIC_SUPABASE_ANON_KEY
 # NEXT_PUBLIC_APP_URL
-# NEXT_PUBLIC_SENTRY_DSN (optional)
-
-# Plugin configuration
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-[[plugins]]
-  package = "netlify-plugin-lighthouse"
-  
-  [plugins.inputs]
-    output_path = "lighthouse"
-    
-[[plugins]]
-  package = "netlify-plugin-submit-sitemap"
-  
-  [plugins.inputs]
-    baseUrl = "https://your-domain.com"
-    sitemapPath = "/sitemap.xml"
-    ignorePeriod = 0
-    providers = [
-      "google",
-      "bing"
-    ]
