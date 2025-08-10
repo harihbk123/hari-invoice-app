@@ -2,13 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
   
-  // Experimental features from your current config
+  // Experimental features
   experimental: {
     optimizeCss: true,
     scrollRestoration: true
   },
 
-  // Webpack configuration to handle Node.js modules in Edge Runtime
+  // Webpack configuration to handle Supabase Edge Runtime warnings
   webpack: (config, { nextRuntime }) => {
     // Only apply fallbacks for browser bundles, not for Edge Runtime
     if (typeof nextRuntime === "undefined") {
@@ -94,33 +94,18 @@ const nextConfig = {
     ];
   },
 
-  // Redirects for authentication
-  async redirects() {
-    return [
-      {
-        source: '/',
-        has: [
-          {
-            type: 'cookie',
-            key: 'supabase-auth-token',
-            value: undefined
-          }
-        ],
-        destination: '/auth/login',
-        permanent: false
-      },
-      {
-        source: '/',
-        has: [
-          {
-            type: 'cookie',
-            key: 'supabase-auth-token'
-          }
-        ],
-        destination: '/dashboard',
-        permanent: false
-      }
-    ];
+  // TypeScript configuration
+  typescript: {
+    // Don't ignore build errors - we want to catch them
+    ignoreBuildErrors: false,
+  },
+
+  // ESLint configuration  
+  eslint: {
+    // Don't ignore during builds to catch errors early
+    ignoreDuringBuilds: false,
+    // Only run ESLint on src directory
+    dirs: ['src'],
   }
 };
 
