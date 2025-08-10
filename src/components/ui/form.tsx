@@ -45,8 +45,3 @@ export const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttr
     );
   }
 );
-
-// Utility function
-function cn(...classes: (string | undefined)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
