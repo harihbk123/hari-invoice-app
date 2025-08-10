@@ -1,3 +1,4 @@
+// src/app/dashboard/invoices/[id]/edit/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,6 +21,12 @@ interface InvoiceFormData {
   description: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export default function EditInvoicePage() {
   const params = useParams();
   const router = useRouter();
@@ -27,6 +34,7 @@ export default function EditInvoicePage() {
   const invoiceId = params.id as string;
 
   const [invoice, setInvoice] = useState<any>(null);
+  const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<InvoiceFormData>({
@@ -38,9 +46,26 @@ export default function EditInvoicePage() {
     description: ''
   });
 
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+
   useEffect(() => {
     loadInvoice();
+    loadClients();
   }, [invoiceId]);
+
+  const loadClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name, email')
+        .order('name');
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    }
+  };
 
   const loadInvoice = async () => {
     try {
@@ -73,16 +98,49 @@ export default function EditInvoicePage() {
     }
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (!formData.client_id) {
+      newErrors.client_id = 'Client is required';
+    }
+    if (!formData.amount || formData.amount <= 0) {
+      newErrors.amount = 'Amount must be greater than 0';
+    }
+    if (!formData.issue_date) {
+      newErrors.issue_date = 'Issue date is required';
+    }
+    if (!formData.due_date) {
+      newErrors.due_date = 'Due date is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleInputChange = (field: keyof InvoiceFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const value = field === 'amount' ? parseFloat(e.target.value) || 0 : e.target.value;
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+    
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -97,9 +155,10 @@ export default function EditInvoicePage() {
         title: 'Success',
         description: 'Invoice updated successfully',
       });
-      
+
       router.push('/dashboard/invoices');
     } catch (error) {
+      console.error('Error updating invoice:', error);
       toast({
         title: 'Error',
         description: 'Failed to update invoice',
@@ -112,31 +171,25 @@ export default function EditInvoicePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-muted-foreground">Loading invoice...</div>
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
       </div>
     );
   }
 
   if (!invoice) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Not Found</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              The invoice you're looking for doesn't exist.
-            </p>
-            <Button asChild>
-              <Link href="/dashboard/invoices">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Invoices
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600">Invoice Not Found</h1>
+          <p className="text-gray-600 mt-2">The invoice you're looking for doesn't exist.</p>
+          <Link href="/dashboard/invoices">
+            <Button className="mt-4">Back to Invoices</Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -164,54 +217,74 @@ export default function EditInvoicePage() {
             <CardTitle>Invoice Details</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <FormItem>
+                <FormLabel>Client *</FormLabel>
+                <select
+                  value={formData.client_id}
+                  onChange={handleInputChange('client_id')}
+                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isSubmitting}
+                >
+                  <option value="">Select a client</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+                <FormMessage>{errors.client_id}</FormMessage>
+              </FormItem>
+
+              <FormItem>
+                <FormLabel>Amount *</FormLabel>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.amount}
+                  onChange={handleInputChange('amount')}
+                  placeholder="0.00"
+                  disabled={isSubmitting}
+                />
+                <FormMessage>{errors.amount}</FormMessage>
+              </FormItem>
+
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <select
+                  value={formData.status}
+                  onChange={handleInputChange('status')}
+                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isSubmitting}
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Overdue">Overdue</option>
+                </select>
+              </FormItem>
+
               <div className="grid grid-cols-2 gap-4">
                 <FormItem>
-                  <FormLabel>Amount</FormLabel>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={handleInputChange('amount')}
-                    disabled={isSubmitting}
-                  />
-                </FormItem>
-
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <select
-                    value={formData.status}
-                    onChange={handleInputChange('status')}
-                    disabled={isSubmitting}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                  >
-                    <option value="Draft">Draft</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Paid">Paid</option>
-                    <option value="Overdue">Overdue</option>
-                  </select>
-                </FormItem>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormItem>
-                  <FormLabel>Issue Date</FormLabel>
+                  <FormLabel>Issue Date *</FormLabel>
                   <Input
                     type="date"
                     value={formData.issue_date}
                     onChange={handleInputChange('issue_date')}
                     disabled={isSubmitting}
                   />
+                  <FormMessage>{errors.issue_date}</FormMessage>
                 </FormItem>
 
                 <FormItem>
-                  <FormLabel>Due Date</FormLabel>
+                  <FormLabel>Due Date *</FormLabel>
                   <Input
                     type="date"
                     value={formData.due_date}
                     onChange={handleInputChange('due_date')}
                     disabled={isSubmitting}
                   />
+                  <FormMessage>{errors.due_date}</FormMessage>
                 </FormItem>
               </div>
 
@@ -225,7 +298,7 @@ export default function EditInvoicePage() {
                 />
               </FormItem>
 
-              <div className="flex justify-end space-x-2 pt-4">
+              <div className="flex justify-end space-x-2 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
