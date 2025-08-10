@@ -17,7 +17,7 @@ import {
   CurrencyDollarIcon, 
   UserGroupIcon, 
   DocumentTextIcon, 
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   ClockIcon,
@@ -227,7 +227,7 @@ export default function EnhancedDashboard() {
             <div className={`p-2 rounded-lg ${
               metrics.netProfit >= 0 ? 'bg-green-100' : 'bg-red-100'
             }`}>
-              <TrendingUpIcon className={`h-6 w-6 ${
+              <ArrowTrendingUpIcon className={`h-6 w-6 ${
                 metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
               }`} />
             </div>
