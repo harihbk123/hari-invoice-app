@@ -1,9 +1,9 @@
-// src/lib/ratelimit.ts - Simplified for deployment without external dependencies
+// src/lib/ratelimit.ts - Fixed to remove private property access
 
 // In-memory rate limiting (for now, can be upgraded to Redis later)
 class SimpleRateLimit {
   private requests: Map<string, { count: number; resetTime: number }> = new Map()
-  private limit: number
+  public limit: number // Made public so it can be accessed
   private windowMs: number
 
   constructor(limit: number, windowMs: number) {
