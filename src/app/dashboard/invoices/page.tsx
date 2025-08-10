@@ -1,3 +1,4 @@
+// src/app/dashboard/invoices/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -38,57 +39,95 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   const filteredInvoices = invoices.filter((invoice) => {
+    // Fix: Handle both nested and flat client data structures
+    const clientName = invoice.clients?.name || invoice.client_name || '';
+    const invoiceNumber = invoice.invoice_number || invoice.id || '';
+    
     const matchesSearch =
-      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.client_name.toLowerCase().includes(searchTerm.toLowerCase());
+      invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      clientName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || invoice.status.toLowerCase() === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this invoice?')) {
-      await deleteInvoice.mutateAsync(id);
+      try {
+        await deleteInvoice.mutateAsync(id);
+      } catch (error) {
+        console.error('Error deleting invoice:', error);
+      }
     }
   };
 
-  const handleStatusChange = async (id: string, status: string) => {
-    await changeStatus.mutateAsync({ id, status });
-  };
-
-  const handleDownloadPDF = (invoice: any) => {
-    const client = clients.find(c => c.id === invoice.client_id);
-    if (settings && client) {
-      downloadInvoicePDF(invoice, client, settings);
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      await changeStatus.mutateAsync({ id, status: newStatus as any });
+    } catch (error) {
+      console.error('Error changing status:', error);
     }
   };
+
+  const handleDownloadPDF = async (invoice: any) => {
+    if (!settings) {
+      console.error('Settings not loaded');
+      return;
+    }
+
+    try {
+      // Get client info - handle both nested and flat structures
+      const client = invoice.clients || {
+        name: invoice.client_name || 'Unknown Client',
+        email: invoice.client_email || '',
+        address: invoice.client_address || ''
+      };
+
+      await downloadInvoicePDF(invoice, client, settings);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">Loading invoices...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold">Invoices</h1>
-          <p className="text-muted-foreground">Manage your invoices</p>
+          <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
+          <p className="text-muted-foreground">
+            Manage your invoices and track payments
+          </p>
         </div>
-        <Link href="/invoices/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
+        <Button asChild>
+          <Link href="/dashboard/invoices/create">
+            <Plus className="mr-2 h-4 w-4" />
             Create Invoice
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
-      <div className="flex gap-4 items-center">
+      {/* Filters */}
+      <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search invoices..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-9"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]">
+            <Filter className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -97,11 +136,11 @@ export default function InvoicesPage() {
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
+      {/* Invoices Table */}
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
@@ -109,86 +148,93 @@ export default function InvoicesPage() {
               <TableHead>Invoice #</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Due Date</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Issue Date</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {filteredInvoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  Loading invoices...
-                </TableCell>
-              </TableRow>
-            ) : filteredInvoices.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No invoices found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredInvoices.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">{invoice.id}</TableCell>
-                  <TableCell>{invoice.client_name}</TableCell>
-                  <TableCell className="font-semibold">
-                    {formatCurrency(invoice.amount)}
-                  </TableCell>
-                  <TableCell>{formatDate(invoice.date_issued)}</TableCell>
-                  <TableCell>{formatDate(invoice.due_date)}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={invoice.status}
-                      onValueChange={(value) => handleStatusChange(invoice.id, value)}
-                    >
-                      <SelectTrigger className="w-[120px] h-8 border-0 p-0 focus:ring-0">
-                        <InvoiceStatusBadge status={invoice.status} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Draft">Draft</SelectItem>
-                        <SelectItem value="Pending">Pending</SelectItem>
-                        <SelectItem value="Paid">Paid</SelectItem>
-                        <SelectItem value="Overdue">Overdue</SelectItem>
-                        <SelectItem value="Cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Link href={`/invoices/${invoice.id}`}>
-                        <Button variant="ghost" size="icon">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Link href={`/invoices/${invoice.id}/edit`}>
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDownloadPDF(invoice)}
+              filteredInvoices.map((invoice) => {
+                // Handle both nested and flat client data
+                const clientName = invoice.clients?.name || invoice.client_name || 'Unknown Client';
+                const invoiceNumber = invoice.invoice_number || invoice.id;
+                
+                return (
+                  <TableRow key={invoice.id}>
+                    <TableCell className="font-medium">
+                      <Link 
+                        href={`/dashboard/invoices/${invoice.id}`}
+                        className="text-blue-600 hover:underline"
                       >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(invoice.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                        {invoiceNumber}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{clientName}</TableCell>
+                    <TableCell>{formatCurrency(invoice.amount)}</TableCell>
+                    <TableCell>
+                      <InvoiceStatusBadge status={invoice.status} />
+                    </TableCell>
+                    <TableCell>
+                      {invoice.issue_date ? formatDate(invoice.issue_date) : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {invoice.due_date ? formatDate(invoice.due_date) : '-'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/dashboard/invoices/${invoice.id}`}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/dashboard/invoices/${invoice.id}/edit`}>
+                            <Edit className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDownloadPDF(invoice)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDelete(invoice.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Summary */}
+      {filteredInvoices.length > 0 && (
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>Showing {filteredInvoices.length} of {invoices.length} invoices</span>
+          <span>
+            Total: {formatCurrency(
+              filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0)
+            )}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
