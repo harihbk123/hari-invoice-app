@@ -1,3 +1,4 @@
+// src/app/dashboard/clients/create/page.tsx
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -5,11 +6,44 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { createClient } from '@/lib/supabase/queries';
 import { ClientForm } from '@/features/clients/components/client-form';
+import type { ClientFormData } from '@/types/client';
 
 export default function CreateClientPage() {
   const router = useRouter();
   const { toast } = useToast();
+
+  const handleSubmit = async (data: ClientFormData) => {
+    try {
+      // Convert ClientFormData to Client creation format
+      const createData = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company: data.company,
+        address: data.address,
+        status: 'active' as const
+      };
+
+      const newClient = await createClient(createData);
+      
+      toast({
+        title: 'Client Created',
+        description: 'New client has been added successfully',
+      });
+      
+      // Navigate to the new client's detail page
+      router.push(`/dashboard/clients/${newClient.id}`);
+    } catch (error) {
+      console.error('Error creating client:', error);
+      throw error; // Let ClientForm handle the error display
+    }
+  };
+
+  const handleCancel = () => {
+    router.push('/dashboard/clients');
+  };
 
   return (
     <div className="space-y-6">
@@ -24,14 +58,15 @@ export default function CreateClientPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Clients
         </Button>
+        
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Building2 className="h-6 w-6 text-blue-600" />
+          <div className="p-2 bg-green-100 rounded-lg">
+            <Building2 className="h-6 w-6 text-green-600" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Add New Client</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Create Client</h1>
             <p className="text-muted-foreground">
-              Create a new client profile for your business
+              Add a new client to your database
             </p>
           </div>
         </div>
@@ -42,20 +77,13 @@ export default function CreateClientPage() {
         <CardHeader>
           <CardTitle>Client Information</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Fill in the details below to create a new client profile. All fields marked with * are required.
+            Fill in the client details below. All fields marked with * are required.
           </p>
         </CardHeader>
         <CardContent>
           <ClientForm 
-            mode="create"
-            onSuccess={(clientId) => {
-              toast({
-                title: 'Client Created',
-                description: 'New client has been added successfully',
-              });
-              router.push(`/dashboard/clients/${clientId}`);
-            }}
-            onCancel={() => router.push('/dashboard/clients')}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
           />
         </CardContent>
       </Card>
