@@ -1,12 +1,16 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+// src/lib/supabase.ts - Updated to use @supabase/ssr
+import { createBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
-// For client-side components
-export const supabase = createClientComponentClient<Database>()
+// For client-side components - Updated to use @supabase/ssr
+export const supabase = createBrowserClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 // For server-side operations (API routes, server components)
-export const supabaseAdmin = createClient(
+export const supabaseAdmin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   {
@@ -131,14 +135,7 @@ export const dbHelpers = {
   async getExpenses() {
     const { data, error } = await supabase
       .from('expenses')
-      .select(`
-        *,
-        expense_categories (
-          name,
-          icon,
-          color
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
     return { data, error }
   },
@@ -170,24 +167,6 @@ export const dbHelpers = {
     return { error }
   },
 
-  // Expense Categories
-  async getExpenseCategories() {
-    const { data, error } = await supabase
-      .from('expense_categories')
-      .select('*')
-      .order('name')
-    return { data, error }
-  },
-
-  async createExpenseCategory(category: Database['public']['Tables']['expense_categories']['Insert']) {
-    const { data, error } = await supabase
-      .from('expense_categories')
-      .insert(category)
-      .select()
-      .single()
-    return { data, error }
-  },
-
   // Settings
   async getSettings(userId: string) {
     const { data, error } = await supabase
@@ -202,24 +181,6 @@ export const dbHelpers = {
     const { data, error } = await supabase
       .from('settings')
       .upsert(settings)
-      .select()
-      .single()
-    return { data, error }
-  },
-
-  // Balance Summary
-  async getBalanceSummary() {
-    const { data, error } = await supabase
-      .from('balance_summary')
-      .select('*')
-      .single()
-    return { data, error }
-  },
-
-  async updateBalanceSummary(updates: Database['public']['Tables']['balance_summary']['Update']) {
-    const { data, error } = await supabase
-      .from('balance_summary')
-      .upsert(updates)
       .select()
       .single()
     return { data, error }
