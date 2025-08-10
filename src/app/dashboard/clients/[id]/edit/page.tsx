@@ -1,3 +1,4 @@
+// src/app/dashboard/clients/[id]/edit/page.tsx
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -20,6 +21,27 @@ export default function EditClientPage() {
     queryFn: () => getClient(clientId),
     enabled: !!clientId,
   });
+
+  const handleSubmit = async (data: any) => {
+    // Handle client update logic here
+    try {
+      // This would typically call an update function
+      console.log('Updating client:', data);
+      
+      toast({
+        title: 'Client Updated',
+        description: 'Client information has been updated successfully',
+      });
+      
+      router.push(`/dashboard/clients/${clientId}`);
+    } catch (error) {
+      throw error; // Let ClientForm handle the error
+    }
+  };
+
+  const handleCancel = () => {
+    router.push(`/dashboard/clients/${clientId}`);
+  };
 
   if (isLoading) {
     return (
@@ -90,15 +112,8 @@ export default function EditClientPage() {
         <CardContent>
           <ClientForm 
             client={client}
-            mode="edit"
-            onSuccess={() => {
-              toast({
-                title: 'Client Updated',
-                description: 'Client information has been updated successfully',
-              });
-              router.push(`/dashboard/clients/${clientId}`);
-            }}
-            onCancel={() => router.push(`/dashboard/clients/${clientId}`)}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
           />
         </CardContent>
       </Card>
