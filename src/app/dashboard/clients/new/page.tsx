@@ -4,16 +4,51 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { createClient } from '@/lib/supabase/queries';
 import { ClientForm } from '@/features/clients/components/client-form';
+import type { ClientFormData } from '@/types/client';
 
 export default function NewClientPage() {
   const router = useRouter();
+  const { toast } = useToast();
+
+  const handleSubmit = async (data: ClientFormData) => {
+    try {
+      // Convert ClientFormData to Client creation format
+      const createData = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company: data.company,
+        address: data.address,
+        status: 'active' as const
+      };
+
+      const newClient = await createClient(createData);
+      
+      toast({
+        title: 'Client Created',
+        description: 'New client has been added successfully',
+      });
+      
+      // Navigate to the new client's detail page
+      router.push(`/dashboard/clients/${newClient.id}`);
+    } catch (error) {
+      console.error('Error creating client:', error);
+      throw error; // Let ClientForm handle the error display
+    }
+  };
+
+  const handleCancel = () => {
+    router.push('/dashboard/clients');
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <Button
-          onClick={() => router.push('/clients')}
+          onClick={() => router.push('/dashboard/clients')}
           variant="ghost"
           size="sm"
           className="mb-2"
@@ -33,7 +68,10 @@ export default function NewClientPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ClientForm />
+          <ClientForm 
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+          />
         </CardContent>
       </Card>
     </div>
