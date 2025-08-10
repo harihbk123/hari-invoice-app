@@ -1,8 +1,7 @@
-// src/app/dashboard/invoices/[id]/edit/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,11 +26,16 @@ interface Client {
   email: string;
 }
 
+// Fix: Allow undefined in errors object
+interface FormErrors {
+  [key: string]: string | undefined;
+}
+
 export default function EditInvoicePage() {
-  const params = useParams();
   const router = useRouter();
-  const { toast } = useToast();
+  const params = useParams();
   const invoiceId = params.id as string;
+  const { toast } = useToast();
 
   const [invoice, setInvoice] = useState<any>(null);
   const [clients, setClients] = useState<Client[]>([]);
@@ -46,11 +50,12 @@ export default function EditInvoicePage() {
     description: ''
   });
 
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  // Fix: Use FormErrors type that allows undefined
+  const [errors, setErrors] = useState<FormErrors>({});
 
   useEffect(() => {
-    loadInvoice();
     loadClients();
+    loadInvoice();
   }, [invoiceId]);
 
   const loadClients = async () => {
@@ -99,7 +104,7 @@ export default function EditInvoicePage() {
   };
 
   const validateForm = (): boolean => {
-    const newErrors: {[key: string]: string} = {};
+    const newErrors: FormErrors = {};
 
     if (!formData.client_id) {
       newErrors.client_id = 'Client is required';
@@ -115,7 +120,7 @@ export default function EditInvoicePage() {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return Object.keys(newErrors).filter(key => newErrors[key] !== undefined).length === 0;
   };
 
   const handleInputChange = (field: keyof InvoiceFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -127,10 +132,11 @@ export default function EditInvoicePage() {
     
     // Clear error when user starts typing
     if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
     }
   };
 
@@ -186,9 +192,9 @@ export default function EditInvoicePage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">Invoice Not Found</h1>
           <p className="text-gray-600 mt-2">The invoice you're looking for doesn't exist.</p>
-          <Link href="/dashboard/invoices">
-            <Button className="mt-4">Back to Invoices</Button>
-          </Link>
+          <Button className="mt-4" onClick={() => router.push('/dashboard/invoices')}>
+            Back to Invoices
+          </Button>
         </div>
       </div>
     );
@@ -196,21 +202,18 @@ export default function EditInvoicePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <Link href="/dashboard/invoices">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Invoices
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
           </Link>
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Edit Invoice</h1>
-          <p className="text-muted-foreground">Update invoice details</p>
+          <h1 className="text-2xl font-bold">Edit Invoice</h1>
         </div>
       </div>
 
-      {/* Form */}
       <div className="max-w-2xl">
         <Card>
           <CardHeader>
@@ -233,7 +236,7 @@ export default function EditInvoicePage() {
                     </option>
                   ))}
                 </select>
-                <FormMessage>{errors.client_id}</FormMessage>
+                {errors.client_id && <FormMessage>{errors.client_id}</FormMessage>}
               </FormItem>
 
               <FormItem>
@@ -246,7 +249,7 @@ export default function EditInvoicePage() {
                   placeholder="0.00"
                   disabled={isSubmitting}
                 />
-                <FormMessage>{errors.amount}</FormMessage>
+                {errors.amount && <FormMessage>{errors.amount}</FormMessage>}
               </FormItem>
 
               <FormItem>
@@ -273,7 +276,7 @@ export default function EditInvoicePage() {
                     onChange={handleInputChange('issue_date')}
                     disabled={isSubmitting}
                   />
-                  <FormMessage>{errors.issue_date}</FormMessage>
+                  {errors.issue_date && <FormMessage>{errors.issue_date}</FormMessage>}
                 </FormItem>
 
                 <FormItem>
@@ -284,7 +287,7 @@ export default function EditInvoicePage() {
                     onChange={handleInputChange('due_date')}
                     disabled={isSubmitting}
                   />
-                  <FormMessage>{errors.due_date}</FormMessage>
+                  {errors.due_date && <FormMessage>{errors.due_date}</FormMessage>}
                 </FormItem>
               </div>
 
