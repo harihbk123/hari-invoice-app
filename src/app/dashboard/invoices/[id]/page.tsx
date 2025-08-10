@@ -85,12 +85,14 @@ export default function InvoiceDetailsPage() {
     if (!invoice || !settings) return;
     
     try {
-      // Get client data for PDF
+      // Get client data for PDF - handle both nested and flattened structures
       const client = invoice.client || {
+        id: invoice.client_id,
         name: invoice.client_name || 'Unknown Client',
         email: invoice.client_email || '',
         phone: invoice.client_phone || '',
-        address: invoice.client_address || ''
+        address: invoice.client_address || '',
+        company: invoice.client_company || ''
       };
       
       await downloadInvoicePDF(invoice, client, settings);
@@ -316,6 +318,14 @@ export default function InvoiceDetailsPage() {
                   <p className="text-sm text-gray-600">Address</p>
                   <p className="font-semibold whitespace-pre-line">
                     {invoice.client?.address || invoice.client_address}
+                  </p>
+                </div>
+              )}
+              {(invoice.client?.company || invoice.client_company) && (
+                <div>
+                  <p className="text-sm text-gray-600">Company</p>
+                  <p className="font-semibold">
+                    {invoice.client?.company || invoice.client_company}
                   </p>
                 </div>
               )}
