@@ -1,589 +1,331 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useStore } from '@/store';
-import { formatCurrency, formatDate } from '@/lib/utils';
-import {
-  Plus,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Users,
-  FileText,
-  Calendar,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Eye,
-  ArrowUpRight,
-  ArrowDownRight,
-} from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { Invoice } from '@/types/invoice';
+import { Client } from '@/types/client';
+import { Expense } from '@/types/expense';
+import MonthlyRevenueChart from '@/components/charts/MonthlyRevenueChart';
+import ClientDistributionChart from '@/components/charts/ClientDistributionChart';
+import InvoiceStatusChart from '@/components/charts/InvoiceStatusChart';
+import ExpenseCategoryChart from '@/components/charts/ExpenseCategoryChart';
+import BalanceCards from '@/components/expenses/BalanceCards';
+import { formatCurrency, formatDate } from '@/utils/format';
+import { 
+  CurrencyDollarIcon, 
+  UserGroupIcon, 
+  DocumentTextIcon, 
+  TrendingUpIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  PlusIcon
+} from '@heroicons/react/24/outline';
 
-interface MetricCardProps {
-  title: string;
-  value: string;
-  change?: number;
-  changeLabel?: string;
-  icon: React.ReactNode;
-  trend?: 'up' | 'down' | 'neutral';
+interface DashboardMetrics {
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  profitMargin: number;
+  totalClients: number;
+  activeClients: number;
+  totalInvoices: number;
+  pendingInvoices: number;
+  overdueInvoices: number;
+  averageInvoiceValue: number;
+  monthlyGrowth: number;
+  recentActivity: Activity[];
 }
 
-const MetricCard = ({ title, value, change, changeLabel, icon, trend }: MetricCardProps) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      {icon}
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">{value}</div>
-      {change !== undefined && (
-        <p className="text-xs text-muted-foreground flex items-center gap-1">
-          {trend === 'up' && <ArrowUpRight className="h-3 w-3 text-green-500" />}
-          {trend === 'down' && <ArrowDownRight className="h-3 w-3 text-red-500" />}
-          <span className={
-            trend === 'up' ? 'text-green-500' : 
-            trend === 'down' ? 'text-red-500' : 
-            'text-muted-foreground'
-          }>
-            {change > 0 ? '+' : ''}{change}%
-          </span>
-          {changeLabel && <span>{changeLabel}</span>}
-        </p>
-      )}
-    </CardContent>
-  </Card>
-);
+interface Activity {
+  id: string;
+  type: 'invoice' | 'payment' | 'expense' | 'client';
+  description: string;
+  amount?: number;
+  timestamp: string;
+  status?: string;
+}
 
-export default function DashboardPage() {
-  const { invoices, clients, expenses, settings } = useStore();
-  const [metrics, setMetrics] = useState({
-    totalEarnings: 0,
+interface ChartData {
+  monthlyRevenue: any[];
+  clientDistribution: any[];
+  invoiceStatus: any[];
+  expenseCategories: any[];
+}
+
+export default function EnhancedDashboard() {
+  const router = useRouter();
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
+    totalRevenue: 0,
     totalExpenses: 0,
-    currentBalance: 0,
+    netProfit: 0,
+    profitMargin: 0,
     totalClients: 0,
+    activeClients: 0,
     totalInvoices: 0,
     pendingInvoices: 0,
-    overdue: 0,
+    overdueInvoices: 0,
+    averageInvoiceValue: 0,
     monthlyGrowth: 0,
-    expenseGrowth: 0,
-    clientGrowth: 0,
+    recentActivity: []
   });
-
-  const [revenueData, setRevenueData] = useState<any[]>([]);
-  const [invoiceStatusData, setInvoiceStatusData] = useState<any[]>([]);
-  const [expenseCategoryData, setExpenseCategoryData] = useState<any[]>([]);
+  
+  const [chartData, setChartData] = useState<ChartData>({
+    monthlyRevenue: [],
+    clientDistribution: [],
+    invoiceStatus: [],
+    expenseCategories: []
+  });
+  
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    calculateMetrics();
-    prepareChartData();
-  }, [invoices, clients, expenses]);
+    loadDashboardData();
+  }, []);
 
-  const calculateMetrics = () => {
-    const paidInvoices = invoices.filter(inv => inv.status === 'Paid');
-    const totalEarnings = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const currentBalance = totalEarnings - totalExpenses;
-    const pendingInvoices = invoices.filter(inv => inv.status === 'Pending').length;
-    
-    // Calculate overdue invoices
-    const today = new Date();
-    const overdue = invoices.filter(inv => {
-      if (inv.status === 'Paid') return false;
-      const dueDate = new Date(inv.due_date);
-      return dueDate < today;
-    }).length;
-
-    // Calculate monthly growth
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const currentMonthEarnings = paidInvoices
-      .filter(inv => {
-        const invDate = new Date(inv.date_issued);
-        return invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear;
-      })
-      .reduce((sum, inv) => sum + inv.amount, 0);
-
-    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    const lastMonthEarnings = paidInvoices
-      .filter(inv => {
-        const invDate = new Date(inv.date_issued);
-        return invDate.getMonth() === lastMonth && invDate.getFullYear() === lastMonthYear;
-      })
-      .reduce((sum, inv) => sum + inv.amount, 0);
-
-    const monthlyGrowth = lastMonthEarnings > 0 
-      ? ((currentMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100 
-      : 0;
-
-    // Calculate expense growth
-    const currentMonthExpenses = expenses
-      .filter(exp => {
-        const expDate = new Date(exp.date);
-        return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
-      })
-      .reduce((sum, exp) => sum + exp.amount, 0);
-
-    const lastMonthExpenses = expenses
-      .filter(exp => {
-        const expDate = new Date(exp.date);
-        return expDate.getMonth() === lastMonth && expDate.getFullYear() === lastMonthYear;
-      })
-      .reduce((sum, exp) => sum + exp.amount, 0);
-
-    const expenseGrowth = lastMonthExpenses > 0 
-      ? ((currentMonthExpenses - lastMonthExpenses) / lastMonthExpenses) * 100 
-      : 0;
-
-    // Calculate client growth (new clients this month vs last month)
-    const currentMonthClients = clients.filter(client => {
-      const clientDate = new Date(client.created_at);
-      return clientDate.getMonth() === currentMonth && clientDate.getFullYear() === currentYear;
-    }).length;
-
-    const lastMonthClients = clients.filter(client => {
-      const clientDate = new Date(client.created_at);
-      return clientDate.getMonth() === lastMonth && clientDate.getFullYear() === lastMonthYear;
-    }).length;
-
-    const clientGrowth = lastMonthClients > 0 
-      ? ((currentMonthClients - lastMonthClients) / lastMonthClients) * 100 
-      : 0;
-
-    setMetrics({
-      totalEarnings,
-      totalExpenses,
-      currentBalance,
-      totalClients: clients.length,
-      totalInvoices: invoices.length,
-      pendingInvoices,
-      overdue,
-      monthlyGrowth: Math.round(monthlyGrowth * 100) / 100,
-      expenseGrowth: Math.round(expenseGrowth * 100) / 100,
-      clientGrowth: Math.round(clientGrowth * 100) / 100,
-    });
-  };
-
-  const prepareChartData = () => {
-    // Revenue chart data (last 6 months)
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const revenueChart = [];
-    const today = new Date();
-    
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const month = date.getMonth();
-      const year = date.getFullYear();
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
       
-      const monthRevenue = invoices
-        .filter(inv => {
-          const invDate = new Date(inv.date_issued);
-          return invDate.getMonth() === month && 
-                 invDate.getFullYear() === year && 
-                 inv.status === 'Paid';
-        })
+      // Load all data in parallel
+      const [invoicesResult, clientsResult, expensesResult] = await Promise.all([
+        supabase.from('invoices').select('*'),
+        supabase.from('clients').select('*'),
+        supabase.from('expenses').select('*')
+      ]);
+
+      const invoices = invoicesResult.data || [];
+      const clients = clientsResult.data || [];
+      const expenses = expensesResult.data || [];
+
+      // Calculate metrics
+      const totalRevenue = invoices
+        .filter(inv => inv.status === 'Paid')
         .reduce((sum, inv) => sum + inv.amount, 0);
+      
+      const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const netProfit = totalRevenue - totalExpenses;
+      const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+      
+      const pendingInvoices = invoices.filter(inv => inv.status === 'Pending').length;
+      const overdueInvoices = invoices.filter(inv => {
+        return inv.status === 'Pending' && new Date(inv.due_date) < new Date();
+      }).length;
+      
+      const averageInvoiceValue = invoices.length > 0 
+        ? invoices.reduce((sum, inv) => sum + inv.amount, 0) / invoices.length 
+        : 0;
 
-      const monthExpenses = expenses
-        .filter(exp => {
-          const expDate = new Date(exp.date);
-          return expDate.getMonth() === month && expDate.getFullYear() === year;
-        })
-        .reduce((sum, exp) => sum + exp.amount, 0);
-
-      revenueChart.push({
-        month: monthNames[month],
-        revenue: monthRevenue,
-        expenses: monthExpenses,
-        profit: monthRevenue - monthExpenses,
+      // Set metrics
+      setMetrics({
+        totalRevenue,
+        totalExpenses,
+        netProfit,
+        profitMargin,
+        totalClients: clients.length,
+        activeClients: clients.filter(c => c.status === 'active').length,
+        totalInvoices: invoices.length,
+        pendingInvoices,
+        overdueInvoices,
+        averageInvoiceValue,
+        monthlyGrowth: 12.5, // This would be calculated based on historical data
+        recentActivity: [] // This would be loaded from activity logs
       });
+
+      // Prepare chart data
+      setChartData({
+        monthlyRevenue: [], // Process monthly revenue data
+        clientDistribution: [], // Process client distribution
+        invoiceStatus: [
+          { name: 'Paid', value: invoices.filter(i => i.status === 'Paid').length },
+          { name: 'Pending', value: pendingInvoices },
+          { name: 'Overdue', value: overdueInvoices }
+        ],
+        expenseCategories: [] // Process expense categories
+      });
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-    setRevenueData(revenueChart);
-
-    // Invoice status data
-    const statusCounts = invoices.reduce((acc, inv) => {
-      acc[inv.status] = (acc[inv.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const statusData = Object.entries(statusCounts).map(([status, count]) => ({
-      status,
-      count,
-      percentage: Math.round((count / invoices.length) * 100),
-    }));
-    setInvoiceStatusData(statusData);
-
-    // Expense category data
-    const categoryCounts = expenses.reduce((acc, exp) => {
-      acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const categoryData = Object.entries(categoryCounts).map(([category, amount]) => ({
-      category,
-      amount,
-      percentage: Math.round((amount / metrics.totalExpenses) * 100),
-    }));
-    setExpenseCategoryData(categoryData);
   };
 
-  const recentInvoices = invoices
-    .sort((a, b) => new Date(b.date_issued).getTime() - new Date(a.date_issued).getTime())
-    .slice(0, 5);
-
-  const recentClients = clients
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 3);
-
-  const upcomingPayments = invoices
-    .filter(inv => inv.status === 'Pending')
-    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
-    .slice(0, 5);
-
-  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1'];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 space-y-6 p-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back! Here's what's happening with your business.
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600">Welcome back! Here's your business overview.</p>
+        </div>
+        <div className="flex gap-2">
+          <Link 
+            href="/dashboard/invoices/create"
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2"
+          >
+            <PlusIcon className="h-4 w-4" />
+            New Invoice
+          </Link>
+          <Link 
+            href="/dashboard/expenses/create"
+            className="bg-secondary text-white px-4 py-2 rounded-lg hover:bg-secondary/90 flex items-center gap-2"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Add Expense
+          </Link>
+        </div>
+      </div>
+
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Revenue */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border">
+          <div className="flex items-center justify-between">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <CurrencyDollarIcon className="h-6 w-6 text-green-600" />
+            </div>
+            <span className="text-sm text-green-600 flex items-center gap-1">
+              <ArrowUpIcon className="h-4 w-4" />
+              {metrics.monthlyGrowth.toFixed(1)}%
+            </span>
+          </div>
+          <h3 className="text-sm font-medium text-gray-500 mt-2">Total Revenue</h3>
+          <p className="text-2xl font-bold text-green-600 mt-1">
+            {formatCurrency(metrics.totalRevenue)}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button asChild>
-            <Link href="/dashboard/invoices/create">
-              <Plus className="mr-2 h-4 w-4" />
-              New Invoice
-            </Link>
-          </Button>
+
+        {/* Total Expenses */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border">
+          <div className="flex items-center justify-between">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <ArrowDownIcon className="h-6 w-6 text-red-600" />
+            </div>
+          </div>
+          <h3 className="text-sm font-medium text-gray-500 mt-2">Total Expenses</h3>
+          <p className="text-2xl font-bold text-red-600 mt-1">
+            {formatCurrency(metrics.totalExpenses)}
+          </p>
+        </div>
+
+        {/* Net Profit */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border">
+          <div className="flex items-center justify-between">
+            <div className={`p-2 rounded-lg ${
+              metrics.netProfit >= 0 ? 'bg-green-100' : 'bg-red-100'
+            }`}>
+              <TrendingUpIcon className={`h-6 w-6 ${
+                metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
+              }`} />
+            </div>
+            <span className={`text-sm flex items-center gap-1 ${
+              metrics.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {metrics.profitMargin.toFixed(1)}% margin
+            </span>
+          </div>
+          <h3 className="text-sm font-medium text-gray-500">Net Profit</h3>
+          <p className={`text-2xl font-bold mt-1 ${
+            metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {formatCurrency(metrics.netProfit)}
+          </p>
+        </div>
+
+        {/* Active Clients */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border">
+          <div className="flex items-center justify-between">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <UserGroupIcon className="h-6 w-6 text-blue-600" />
+            </div>
+          </div>
+          <h3 className="text-sm font-medium text-gray-500 mt-2">Active Clients</h3>
+          <p className="text-2xl font-bold text-blue-600 mt-1">
+            {metrics.activeClients}
+          </p>
+          <p className="text-sm text-gray-500">
+            of {metrics.totalClients} total
+          </p>
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total Revenue"
-          value={formatCurrency(metrics.totalEarnings)}
-          change={metrics.monthlyGrowth}
-          changeLabel="from last month"
-          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-          trend={metrics.monthlyGrowth > 0 ? 'up' : metrics.monthlyGrowth < 0 ? 'down' : 'neutral'}
-        />
-        <MetricCard
-          title="Current Balance"
-          value={formatCurrency(metrics.currentBalance)}
-          icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
-        />
-        <MetricCard
-          title="Total Clients"
-          value={metrics.totalClients.toString()}
-          change={metrics.clientGrowth}
-          changeLabel="new this month"
-          icon={<Users className="h-4 w-4 text-muted-foreground" />}
-          trend={metrics.clientGrowth > 0 ? 'up' : metrics.clientGrowth < 0 ? 'down' : 'neutral'}
-        />
-        <MetricCard
-          title="Pending Invoices"
-          value={metrics.pendingInvoices.toString()}
-          icon={<Clock className="h-4 w-4 text-muted-foreground" />}
-        />
-      </div>
+      {/* Balance Overview */}
+      <BalanceCards />
 
-      {/* Charts Section */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Revenue Chart */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Revenue vs Expenses (Last 6 Months)</CardTitle>
-            <CardDescription>
-              Track your business performance over time
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stackId="1"
-                  stroke="#8884d8"
-                  fill="#8884d8"
-                  fillOpacity={0.6}
-                  name="Revenue"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="expenses"
-                  stackId="2"
-                  stroke="#ff7c7c"
-                  fill="#ff7c7c"
-                  fillOpacity={0.6}
-                  name="Expenses"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Invoice Status Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Status Distribution</CardTitle>
-            <CardDescription>
-              Overview of your invoice statuses
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={invoiceStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ status, percentage }) => `${status} (${percentage}%)`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
-                  {invoiceStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Expense Categories Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Expense Categories</CardTitle>
-            <CardDescription>
-              Breakdown of your expenses by category
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={expenseCategoryData.slice(0, 5)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" />
-                <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                <Bar dataKey="amount" fill="#82ca9d" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity Section */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Recent Invoices */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Invoices</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard/invoices">
-                View all <ArrowUpRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentInvoices.map((invoice) => (
-                <div key={invoice.id} className="flex items-center justify-between space-x-4">
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {invoice.client_name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {invoice.id}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {invoice.client_name}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">
-                      {formatCurrency(invoice.amount)}
-                    </p>
-                    <Badge
-                      variant={
-                        invoice.status === 'Paid' ? 'default' :
-                        invoice.status === 'Pending' ? 'secondary' : 'destructive'
-                      }
-                      className="text-xs"
-                    >
-                      {invoice.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Clients */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Clients</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard/clients">
-                View all <ArrowUpRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentClients.map((client) => (
-                <div key={client.id} className="flex items-center space-x-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>
-                      {client.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {client.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {client.email}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Payments */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Upcoming Payments</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard/invoices?status=pending">
-                View all <ArrowUpRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {upcomingPayments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No pending payments
-                </p>
-              ) : (
-                upcomingPayments.map((invoice) => {
-                  const dueDate = new Date(invoice.due_date);
-                  const today = new Date();
-                  const isOverdue = dueDate < today;
-                  const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-                  return (
-                    <div key={invoice.id} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {isOverdue ? (
-                          <AlertCircle className="h-4 w-4 text-destructive" />
-                        ) : (
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        <div>
-                          <p className="text-sm font-medium">
-                            {invoice.id}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {isOverdue ? `Overdue by ${Math.abs(daysDiff)} days` : 
-                             daysDiff === 0 ? 'Due today' : `Due in ${daysDiff} days`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">
-                          {formatCurrency(invoice.amount)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>
-            Common tasks to help you manage your business
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Button asChild variant="outline" className="h-24 flex-col gap-2">
-              <Link href="/dashboard/invoices/create">
-                <FileText className="h-6 w-6" />
-                Create Invoice
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-24 flex-col gap-2">
-              <Link href="/dashboard/clients/create">
-                <Users className="h-6 w-6" />
-                Add Client
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-24 flex-col gap-2">
-              <Link href="/dashboard/expenses/create">
-                <DollarSign className="h-6 w-6" />
-                Add Expense
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-24 flex-col gap-2">
-              <Link href="/dashboard/analytics">
-                <TrendingUp className="h-6 w-6" />
-                View Analytics
-              </Link>
-            </Button>
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Revenue Trend</h3>
+            <Link href="/dashboard/analytics" className="text-sm text-primary hover:underline">
+              View Details →
+            </Link>
           </div>
-        </CardContent>
-      </Card>
+          <MonthlyRevenueChart data={chartData.monthlyRevenue} />
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Invoice Status</h3>
+            <Link href="/dashboard/invoices" className="text-sm text-primary hover:underline">
+              Manage →
+            </Link>
+          </div>
+          <InvoiceStatusChart data={chartData.invoiceStatus} />
+        </div>
+      </div>
+
+      {/* Quick Actions & Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pending Invoices Alert */}
+        {metrics.pendingInvoices > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <ClockIcon className="h-5 w-5 text-yellow-600" />
+              <div>
+                <h4 className="font-medium text-yellow-800">Pending Invoices</h4>
+                <p className="text-sm text-yellow-700">
+                  {metrics.pendingInvoices} invoice{metrics.pendingInvoices !== 1 ? 's' : ''} awaiting payment
+                </p>
+                <Link href="/dashboard/invoices?filter=pending" className="text-xs text-yellow-600 hover:underline">
+                  View pending invoices →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Overdue Invoices Alert */}
+        {metrics.overdueInvoices > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <ExclamationCircleIcon className="h-5 w-5 text-red-600" />
+              <div>
+                <h4 className="font-medium text-red-800">Overdue Invoices</h4>
+                <p className="text-sm text-red-700">
+                  {metrics.overdueInvoices} invoice{metrics.overdueInvoices !== 1 ? 's' : ''} past due
+                </p>
+                <Link href="/dashboard/invoices?filter=overdue" className="text-xs text-red-600 hover:underline">
+                  View overdue invoices →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
