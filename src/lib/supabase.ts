@@ -1,25 +1,11 @@
-// src/lib/supabase.ts - Updated to use @supabase/ssr
+// src/lib/supabase.ts
 import { createBrowserClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
 // For client-side components - Updated to use @supabase/ssr
 export const supabase = createBrowserClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-// For server-side operations (API routes, server components)
-export const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true
-    }
-  }
 )
 
 // Auth helpers
@@ -68,16 +54,16 @@ export const dbHelpers = {
     return { data, error }
   },
 
-  async createClient(client: Database['public']['Tables']['clients']['Insert']) {
+  async createClient(client: any) {
     const { data, error } = await supabase
       .from('clients')
-      .insert(client)
+      .insert([client])
       .select()
       .single()
     return { data, error }
   },
 
-  async updateClient(id: string, updates: Database['public']['Tables']['clients']['Update']) {
+  async updateClient(id: string, updates: any) {
     const { data, error } = await supabase
       .from('clients')
       .update(updates)
@@ -99,21 +85,37 @@ export const dbHelpers = {
   async getInvoices() {
     const { data, error } = await supabase
       .from('invoices')
-      .select('*')
+      .select(`
+        *,
+        client:clients(*)
+      `)
       .order('created_at', { ascending: false })
     return { data, error }
   },
 
-  async createInvoice(invoice: Database['public']['Tables']['invoices']['Insert']) {
+  async getInvoice(id: string) {
     const { data, error } = await supabase
       .from('invoices')
-      .insert(invoice)
+      .select(`
+        *,
+        client:clients(*),
+        invoice_items(*)
+      `)
+      .eq('id', id)
+      .single()
+    return { data, error }
+  },
+
+  async createInvoice(invoice: any) {
+    const { data, error } = await supabase
+      .from('invoices')
+      .insert([invoice])
       .select()
       .single()
     return { data, error }
   },
 
-  async updateInvoice(id: string, updates: Database['public']['Tables']['invoices']['Update']) {
+  async updateInvoice(id: string, updates: any) {
     const { data, error } = await supabase
       .from('invoices')
       .update(updates)
@@ -135,21 +137,36 @@ export const dbHelpers = {
   async getExpenses() {
     const { data, error } = await supabase
       .from('expenses')
-      .select('*')
-      .order('created_at', { ascending: false })
+      .select(`
+        *,
+        category:expense_categories(*)
+      `)
+      .order('date_incurred', { ascending: false })
     return { data, error }
   },
 
-  async createExpense(expense: Database['public']['Tables']['expenses']['Insert']) {
+  async getExpense(id: string) {
     const { data, error } = await supabase
       .from('expenses')
-      .insert(expense)
+      .select(`
+        *,
+        category:expense_categories(*)
+      `)
+      .eq('id', id)
+      .single()
+    return { data, error }
+  },
+
+  async createExpense(expense: any) {
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert([expense])
       .select()
       .single()
     return { data, error }
   },
 
-  async updateExpense(id: string, updates: Database['public']['Tables']['expenses']['Update']) {
+  async updateExpense(id: string, updates: any) {
     const { data, error } = await supabase
       .from('expenses')
       .update(updates)
@@ -167,22 +184,52 @@ export const dbHelpers = {
     return { error }
   },
 
-  // Settings
-  async getSettings(userId: string) {
+  // Expense Categories
+  async getExpenseCategories() {
     const { data, error } = await supabase
-      .from('settings')
+      .from('expense_categories')
       .select('*')
-      .eq('user_id', userId)
+      .order('name')
+    return { data, error }
+  },
+
+  async createExpenseCategory(category: any) {
+    const { data, error } = await supabase
+      .from('expense_categories')
+      .insert([category])
+      .select()
       .single()
     return { data, error }
   },
 
-  async upsertSettings(settings: Database['public']['Tables']['settings']['Insert']) {
-    const { data, error } = await supabase
-      .from('settings')
-      .upsert(settings)
-      .select()
-      .single()
-    return { data, error }
+  // Dashboard Analytics
+  async getDashboardMetrics() {
+    const { data: invoices, error: invoicesError } = await supabase
+      .from('invoices')
+      .select('amount, status, created_at')
+
+    const { data: expenses, error: expensesError } = await supabase
+      .from('expenses')
+      .select('amount, date_incurred')
+
+    const { data: clients, error: clientsError } = await supabase
+      .from('clients')
+      .select('id, created_at')
+
+    if (invoicesError || expensesError || clientsError) {
+      return { 
+        data: null, 
+        error: invoicesError || expensesError || clientsError 
+      }
+    }
+
+    return {
+      data: {
+        invoices: invoices || [],
+        expenses: expenses || [],
+        clients: clients || []
+      },
+      error: null
+    }
   }
 }
