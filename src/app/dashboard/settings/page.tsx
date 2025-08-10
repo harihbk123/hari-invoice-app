@@ -1,7 +1,7 @@
 // src/app/dashboard/settings/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,8 +62,8 @@ export default function SettingsPage() {
 
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-  // Update form data when settings load
-  useState(() => {
+  // Fix: Use useEffect instead of useState for updating form data
+  useEffect(() => {
     if (settings) {
       setFormData({
         company_name: settings.company_name || '',
@@ -87,7 +87,7 @@ export default function SettingsPage() {
         account_type: settings.account_type || 'Current Account',
       });
     }
-  });
+  }, [settings]);
 
   const handleInputChange = (field: keyof SettingsFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
