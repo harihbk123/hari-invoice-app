@@ -85,24 +85,8 @@ export const dbHelpers = {
   async getInvoices() {
     const { data, error } = await supabase
       .from('invoices')
-      .select(`
-        *,
-        client:clients(*)
-      `)
+      .select('*, clients(*)')
       .order('created_at', { ascending: false })
-    return { data, error }
-  },
-
-  async getInvoice(id: string) {
-    const { data, error } = await supabase
-      .from('invoices')
-      .select(`
-        *,
-        client:clients(*),
-        invoice_items(*)
-      `)
-      .eq('id', id)
-      .single()
     return { data, error }
   },
 
@@ -137,23 +121,8 @@ export const dbHelpers = {
   async getExpenses() {
     const { data, error } = await supabase
       .from('expenses')
-      .select(`
-        *,
-        category:expense_categories(*)
-      `)
-      .order('date_incurred', { ascending: false })
-    return { data, error }
-  },
-
-  async getExpense(id: string) {
-    const { data, error } = await supabase
-      .from('expenses')
-      .select(`
-        *,
-        category:expense_categories(*)
-      `)
-      .eq('id', id)
-      .single()
+      .select('*')
+      .order('date', { ascending: false })
     return { data, error }
   },
 
@@ -193,43 +162,31 @@ export const dbHelpers = {
     return { data, error }
   },
 
-  async createExpenseCategory(category: any) {
+  // Settings
+  async getSettings(userId?: string) {
     const { data, error } = await supabase
-      .from('expense_categories')
-      .insert([category])
+      .from('settings')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+    return { data, error }
+  },
+
+  async updateSettings(settings: any) {
+    const { data, error } = await supabase
+      .from('settings')
+      .upsert(settings)
       .select()
       .single()
     return { data, error }
   },
 
-  // Dashboard Analytics
-  async getDashboardMetrics() {
-    const { data: invoices, error: invoicesError } = await supabase
-      .from('invoices')
-      .select('amount, status, created_at')
-
-    const { data: expenses, error: expensesError } = await supabase
-      .from('expenses')
-      .select('amount, date_incurred')
-
-    const { data: clients, error: clientsError } = await supabase
-      .from('clients')
-      .select('id, created_at')
-
-    if (invoicesError || expensesError || clientsError) {
-      return { 
-        data: null, 
-        error: invoicesError || expensesError || clientsError 
-      }
-    }
-
-    return {
-      data: {
-        invoices: invoices || [],
-        expenses: expenses || [],
-        clients: clients || []
-      },
-      error: null
-    }
+  // Balance Summary
+  async getBalanceSummary() {
+    const { data, error } = await supabase
+      .from('balance_summary')
+      .select('*')
+      .single()
+    return { data, error }
   }
 }
