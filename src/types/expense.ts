@@ -1,5 +1,4 @@
 // src/types/expense.ts
-
 export interface Expense {
   id: string;
   description: string;
@@ -14,6 +13,14 @@ export interface Expense {
   updated_at?: string;
 }
 
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ExpenseFormData {
   description: string;
   amount: number;
@@ -23,22 +30,15 @@ export interface ExpenseFormData {
   is_reimbursable?: boolean;
 }
 
-export interface ExpenseCategory {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  color?: string;
+export interface ExpenseSummary {
+  total: number;
+  count: number;
+  categories: {
+    [key: string]: {
+      amount: number;
+      count: number;
+    };
+  };
+  reimbursable: number;
+  pending_reimbursement: number;
 }
-
-export interface ExpenseFilters {
-  category?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  status?: string;
-  searchTerm?: string;
-}
-
-export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'check' | 'other';
-
-export const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'card', 'bank_transfer', 'check', 'other'];
