@@ -1,47 +1,74 @@
-// src/lib/ratelimit.ts
-import { Ratelimit } from '@upstash/ratelimit'
-import { Redis } from '@upstash/redis'
+// src/lib/ratelimit.ts - Simplified for deployment without external dependencies
 
-// In-memory fallback for development
-const cache = new Map()
+// In-memory rate limiting (for now, can be upgraded to Redis later)
+class SimpleRateLimit {
+  private requests: Map<string, { count: number; resetTime: number }> = new Map()
+  private limit: number
+  private windowMs: number
 
-export const ratelimit = new Ratelimit({
-  redis: process.env.UPSTASH_REDIS_REST_URL 
-    ? Redis.fromEnv()
-    : {
-        // In-memory fallback for development
-        async get(key: string) { return cache.get(key) },
-        async set(key: string, value: any, options?: { ex?: number }) {
-          cache.set(key, value)
-          if (options?.ex) {
-            setTimeout(() => cache.delete(key), options.ex * 1000)
-          }
-        },
-        async incr(key: string) {
-          const current = cache.get(key) || 0
-          const next = current + 1
-          cache.set(key, next)
-          return next
-        },
-        async expire(key: string, seconds: number) {
-          setTimeout(() => cache.delete(key), seconds * 1000)
-        }
-      } as any,
-  limiter: Ratelimit.slidingWindow(100, '1 m'), // 100 requests per minute
-})
+  constructor(limit: number, windowMs: number) {
+    this.limit = limit
+    this.windowMs = windowMs
+  }
 
-// API specific rate limits
-export const apiRateLimit = new Ratelimit({
-  redis: process.env.UPSTASH_REDIS_REST_URL 
-    ? Redis.fromEnv()
-    : cache as any,
-  limiter: Ratelimit.slidingWindow(50, '1 m'), // 50 API calls per minute
-})
+  async limit(identifier: string) {
+    const now = Date.now()
+    const windowStart = now - this.windowMs
+    
+    // Clean up old entries
+    this.cleanup(windowStart)
+    
+    const existing = this.requests.get(identifier)
+    
+    if (!existing) {
+      this.requests.set(identifier, { count: 1, resetTime: now + this.windowMs })
+      return {
+        success: true,
+        limit: this.limit,
+        remaining: this.limit - 1,
+        reset: now + this.windowMs
+      }
+    }
+    
+    if (now > existing.resetTime) {
+      // Reset window
+      this.requests.set(identifier, { count: 1, resetTime: now + this.windowMs })
+      return {
+        success: true,
+        limit: this.limit,
+        remaining: this.limit - 1,
+        reset: now + this.windowMs
+      }
+    }
+    
+    if (existing.count >= this.limit) {
+      return {
+        success: false,
+        limit: this.limit,
+        remaining: 0,
+        reset: existing.resetTime
+      }
+    }
+    
+    existing.count++
+    return {
+      success: true,
+      limit: this.limit,
+      remaining: this.limit - existing.count,
+      reset: existing.resetTime
+    }
+  }
+  
+  private cleanup(windowStart: number) {
+    for (const [key, value] of this.requests.entries()) {
+      if (value.resetTime < windowStart) {
+        this.requests.delete(key)
+      }
+    }
+  }
+}
 
-// Authentication rate limits
-export const authRateLimit = new Ratelimit({
-  redis: process.env.UPSTASH_REDIS_REST_URL 
-    ? Redis.fromEnv()
-    : cache as any,
-  limiter: Ratelimit.slidingWindow(5, '15 m'), // 5 login attempts per 15 minutes
-})
+// Create rate limiters
+export const ratelimit = new SimpleRateLimit(100, 60 * 1000) // 100 requests per minute
+export const apiRateLimit = new SimpleRateLimit(50, 60 * 1000) // 50 API calls per minute  
+export const authRateLimit = new SimpleRateLimit(5, 15 * 60 * 1000) // 5 login attempts per 15 minutes
