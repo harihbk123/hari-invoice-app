@@ -1,132 +1,104 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FormItem, FormLabel } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useTheme } from 'next-themes';
-import { useStore } from '@/store';
 import { 
   Settings, 
   User, 
   Building, 
-  Bell, 
-  Palette, 
-  Shield, 
-  Download,
-  Mail,
-  Globe,
-  DollarSign,
-  Calendar,
-  FileText,
-  Save,
-  RotateCcw
+  Save
 } from 'lucide-react';
 
-// Validation schemas
-const personalInfoSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
-  avatar: z.string().optional(),
-});
+interface PersonalInfo {
+  name: string;
+  email: string;
+  phone: string;
+}
 
-const companyInfoSchema = z.object({
-  companyName: z.string().min(2, 'Company name is required'),
-  companyAddress: z.string().min(5, 'Address is required'),
-  companyPhone: z.string().optional(),
-  companyEmail: z.string().email('Invalid email address'),
-  companyWebsite: z.string().optional(),
-  taxId: z.string().optional(),
-  logo: z.string().optional(),
-});
+interface CompanyInfo {
+  companyName: string;
+  companyAddress: string;
+  companyPhone: string;
+  companyEmail: string;
+  companyWebsite: string;
+  taxId: string;
+}
 
-const invoiceSettingsSchema = z.object({
-  invoicePrefix: z.string().min(1, 'Invoice prefix is required'),
-  nextInvoiceNumber: z.number().min(1, 'Invoice number must be positive'),
-  defaultDueDays: z.number().min(0, 'Due days must be non-negative'),
-  currency: z.string().min(1, 'Currency is required'),
-  taxRate: z.number().min(0).max(100, 'Tax rate must be between 0-100'),
-  defaultPaymentTerms: z.string().optional(),
-});
-
-type PersonalInfo = z.infer<typeof personalInfoSchema>;
-type CompanyInfo = z.infer<typeof companyInfoSchema>;
-type InvoiceSettings = z.infer<typeof invoiceSettingsSchema>;
+interface InvoiceSettings {
+  invoicePrefix: string;
+  nextInvoiceNumber: number;
+  defaultDueDays: number;
+  currency: string;
+  taxRate: number;
+  defaultPaymentTerms: string;
+}
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { theme, setTheme } = useTheme();
-  const { settings, updateSettings } = useStore();
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('personal');
 
-  // Notification preferences
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    invoiceReminders: true,
-    paymentAlerts: true,
-    weeklyReports: false,
-    overdueReminders: true,
+  const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
+    name: '',
+    email: '',
+    phone: '',
   });
 
-  // Form configurations
-  const personalForm = useForm<PersonalInfo>({
-    resolver: zodResolver(personalInfoSchema),
-    defaultValues: {
-      name: settings?.userName || '',
-      email: settings?.userEmail || '',
-      phone: settings?.userPhone || '',
-      avatar: settings?.userAvatar || '',
-    },
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
+    companyName: '',
+    companyAddress: '',
+    companyPhone: '',
+    companyEmail: '',
+    companyWebsite: '',
+    taxId: '',
   });
 
-  const companyForm = useForm<CompanyInfo>({
-    resolver: zodResolver(companyInfoSchema),
-    defaultValues: {
-      companyName: settings?.companyName || '',
-      companyAddress: settings?.companyAddress || '',
-      companyPhone: settings?.companyPhone || '',
-      companyEmail: settings?.companyEmail || '',
-      companyWebsite: settings?.companyWebsite || '',
-      taxId: settings?.taxId || '',
-      logo: settings?.companyLogo || '',
-    },
+  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>({
+    invoicePrefix: 'INV',
+    nextInvoiceNumber: 1,
+    defaultDueDays: 30,
+    currency: 'USD',
+    taxRate: 0,
+    defaultPaymentTerms: '',
   });
 
-  const invoiceForm = useForm<InvoiceSettings>({
-    resolver: zodResolver(invoiceSettingsSchema),
-    defaultValues: {
-      invoicePrefix: settings?.invoicePrefix || 'INV',
-      nextInvoiceNumber: settings?.nextInvoiceNumber || 1,
-      defaultDueDays: settings?.defaultDueDays || 30,
-      currency: settings?.currency || 'USD',
-      taxRate: settings?.taxRate || 0,
-      defaultPaymentTerms: settings?.defaultPaymentTerms || '',
-    },
-  });
+  const handlePersonalInfoChange = (field: keyof PersonalInfo) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPersonalInfo(prev => ({
+      ...prev,
+      [field]: e.target.value
+    }));
+  };
 
-  const handlePersonalInfoSave = async (data: PersonalInfo) => {
+  const handleCompanyInfoChange = (field: keyof CompanyInfo) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCompanyInfo(prev => ({
+      ...prev,
+      [field]: e.target.value
+    }));
+  };
+
+  const handleInvoiceSettingsChange = (field: keyof InvoiceSettings) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = field === 'nextInvoiceNumber' || field === 'defaultDueDays' || field === 'taxRate' 
+      ? parseFloat(e.target.value) || 0 
+      : e.target.value;
+    
+    setInvoiceSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handlePersonalInfoSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSaving(true);
+    
     try {
-      await updateSettings({
-        ...settings,
-        userName: data.name,
-        userEmail: data.email,
-        userPhone: data.phone,
-        userAvatar: data.avatar,
-      });
+      // Here you would save to your database
+      // await savePersonalInfo(personalInfo);
+      
       toast({
         title: 'Personal Information Updated',
         description: 'Your personal information has been saved successfully.',
@@ -142,19 +114,14 @@ export default function SettingsPage() {
     }
   };
 
-  const handleCompanyInfoSave = async (data: CompanyInfo) => {
+  const handleCompanyInfoSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSaving(true);
+    
     try {
-      await updateSettings({
-        ...settings,
-        companyName: data.companyName,
-        companyAddress: data.companyAddress,
-        companyPhone: data.companyPhone,
-        companyEmail: data.companyEmail,
-        companyWebsite: data.companyWebsite,
-        taxId: data.taxId,
-        companyLogo: data.logo,
-      });
+      // Here you would save to your database
+      // await saveCompanyInfo(companyInfo);
+      
       toast({
         title: 'Company Information Updated',
         description: 'Your company information has been saved successfully.',
@@ -170,18 +137,14 @@ export default function SettingsPage() {
     }
   };
 
-  const handleInvoiceSettingsSave = async (data: InvoiceSettings) => {
+  const handleInvoiceSettingsSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSaving(true);
+    
     try {
-      await updateSettings({
-        ...settings,
-        invoicePrefix: data.invoicePrefix,
-        nextInvoiceNumber: data.nextInvoiceNumber,
-        defaultDueDays: data.defaultDueDays,
-        currency: data.currency,
-        taxRate: data.taxRate,
-        defaultPaymentTerms: data.defaultPaymentTerms,
-      });
+      // Here you would save to your database
+      // await saveInvoiceSettings(invoiceSettings);
+      
       toast({
         title: 'Invoice Settings Updated',
         description: 'Your invoice settings have been saved successfully.',
@@ -197,60 +160,16 @@ export default function SettingsPage() {
     }
   };
 
-  const handleNotificationSave = async () => {
-    setIsSaving(true);
-    try {
-      await updateSettings({
-        ...settings,
-        notifications,
-      });
-      toast({
-        title: 'Notification Preferences Updated',
-        description: 'Your notification preferences have been saved successfully.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update notification preferences.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const exportData = () => {
-    // TODO: Implement data export functionality
-    toast({
-      title: 'Export Started',
-      description: 'Your data export will be ready shortly.',
-    });
-  };
-
-  const resetAllSettings = () => {
-    if (confirm('Are you sure you want to reset all settings to default? This action cannot be undone.')) {
-      // TODO: Implement reset functionality
-      toast({
-        title: 'Settings Reset',
-        description: 'All settings have been reset to default values.',
-      });
-    }
-  };
-
   return (
-    <div className="flex-1 space-y-6 p-6">
+    <div className="space-y-6">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-          <Settings className="h-8 w-8" />
-          Settings
-        </h1>
-        <p className="text-muted-foreground">
-          Manage your account, company information, and application preferences.
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground">Manage your account and application preferences</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="personal" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="personal" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Personal
@@ -260,78 +179,52 @@ export default function SettingsPage() {
             Company
           </TabsTrigger>
           <TabsTrigger value="invoices" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
+            <Settings className="h-4 w-4" />
             Invoices
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="preferences" className="flex items-center gap-2">
-            <Palette className="h-4 w-4" />
-            Preferences
           </TabsTrigger>
         </TabsList>
 
-        {/* Personal Information Tab */}
-        <TabsContent value="personal">
+        <TabsContent value="personal" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Personal Information
-              </CardTitle>
+              <CardTitle>Personal Information</CardTitle>
               <CardDescription>
-                Update your personal details and profile information.
+                Update your personal details and contact information.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={personalForm.handleSubmit(handlePersonalInfoSave)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
+              <form onSubmit={handlePersonalInfoSave} className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
                     <Input
-                      id="name"
-                      {...personalForm.register('name')}
+                      value={personalInfo.name}
+                      onChange={handlePersonalInfoChange('name')}
                       placeholder="Enter your full name"
                     />
-                    {personalForm.formState.errors.name && (
-                      <p className="text-sm text-destructive">
-                        {personalForm.formState.errors.name.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
+                  </FormItem>
+
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
                     <Input
-                      id="email"
                       type="email"
-                      {...personalForm.register('email')}
+                      value={personalInfo.email}
+                      onChange={handlePersonalInfoChange('email')}
                       placeholder="Enter your email"
                     />
-                    {personalForm.formState.errors.email && (
-                      <p className="text-sm text-destructive">
-                        {personalForm.formState.errors.email.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      {...personalForm.register('phone')}
-                      placeholder="Enter your phone number"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="avatar">Avatar URL</Label>
-                    <Input
-                      id="avatar"
-                      {...personalForm.register('avatar')}
-                      placeholder="Enter avatar image URL"
-                    />
-                  </div>
+                  </FormItem>
                 </div>
+
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <Input
+                    type="tel"
+                    value={personalInfo.phone}
+                    onChange={handlePersonalInfoChange('phone')}
+                    placeholder="Enter your phone number"
+                  />
+                </FormItem>
+
                 <div className="flex justify-end">
                   <Button type="submit" disabled={isSaving}>
                     <Save className="mr-2 h-4 w-4" />
@@ -343,95 +236,77 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Company Information Tab */}
-        <TabsContent value="company">
+        <TabsContent value="company" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Company Information
-              </CardTitle>
+              <CardTitle>Company Information</CardTitle>
               <CardDescription>
-                Update your company details for invoices and official documents.
+                Update your company details for invoices and business documents.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={companyForm.handleSubmit(handleCompanyInfoSave)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="companyName">Company Name</Label>
+              <form onSubmit={handleCompanyInfoSave} className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormItem>
+                    <FormLabel>Company Name</FormLabel>
                     <Input
-                      id="companyName"
-                      {...companyForm.register('companyName')}
+                      value={companyInfo.companyName}
+                      onChange={handleCompanyInfoChange('companyName')}
                       placeholder="Enter company name"
                     />
-                    {companyForm.formState.errors.companyName && (
-                      <p className="text-sm text-destructive">
-                        {companyForm.formState.errors.companyName.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="companyEmail">Company Email</Label>
+                  </FormItem>
+
+                  <FormItem>
+                    <FormLabel>Company Email</FormLabel>
                     <Input
-                      id="companyEmail"
                       type="email"
-                      {...companyForm.register('companyEmail')}
+                      value={companyInfo.companyEmail}
+                      onChange={handleCompanyInfoChange('companyEmail')}
                       placeholder="Enter company email"
                     />
-                    {companyForm.formState.errors.companyEmail && (
-                      <p className="text-sm text-destructive">
-                        {companyForm.formState.errors.companyEmail.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="companyPhone">Company Phone</Label>
+                  </FormItem>
+                </div>
+
+                <FormItem>
+                  <FormLabel>Company Address</FormLabel>
+                  <Input
+                    value={companyInfo.companyAddress}
+                    onChange={handleCompanyInfoChange('companyAddress')}
+                    placeholder="Enter full address"
+                  />
+                </FormItem>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormItem>
+                    <FormLabel>Company Phone</FormLabel>
                     <Input
-                      id="companyPhone"
-                      {...companyForm.register('companyPhone')}
+                      type="tel"
+                      value={companyInfo.companyPhone}
+                      onChange={handleCompanyInfoChange('companyPhone')}
                       placeholder="Enter company phone"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="companyWebsite">Website</Label>
+                  </FormItem>
+
+                  <FormItem>
+                    <FormLabel>Website</FormLabel>
                     <Input
-                      id="companyWebsite"
-                      {...companyForm.register('companyWebsite')}
-                      placeholder="https://www.example.com"
+                      type="url"
+                      value={companyInfo.companyWebsite}
+                      onChange={handleCompanyInfoChange('companyWebsite')}
+                      placeholder="https://example.com"
                     />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="companyAddress">Company Address</Label>
-                    <Textarea
-                      id="companyAddress"
-                      {...companyForm.register('companyAddress')}
-                      placeholder="Enter complete company address"
-                      rows={3}
-                    />
-                    {companyForm.formState.errors.companyAddress && (
-                      <p className="text-sm text-destructive">
-                        {companyForm.formState.errors.companyAddress.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="taxId">Tax ID/Registration</Label>
-                    <Input
-                      id="taxId"
-                      {...companyForm.register('taxId')}
-                      placeholder="Enter tax ID or registration number"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="logo">Company Logo URL</Label>
-                    <Input
-                      id="logo"
-                      {...companyForm.register('logo')}
-                      placeholder="Enter logo image URL"
-                    />
-                  </div>
+                  </FormItem>
                 </div>
+
+                <FormItem>
+                  <FormLabel>Tax ID</FormLabel>
+                  <Input
+                    value={companyInfo.taxId}
+                    onChange={handleCompanyInfoChange('taxId')}
+                    placeholder="Enter tax identification number"
+                  />
+                </FormItem>
+
                 <div className="flex justify-end">
                   <Button type="submit" disabled={isSaving}>
                     <Save className="mr-2 h-4 w-4" />
@@ -443,106 +318,84 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Invoice Settings Tab */}
-        <TabsContent value="invoices">
+        <TabsContent value="invoices" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Invoice Settings
-              </CardTitle>
+              <CardTitle>Invoice Settings</CardTitle>
               <CardDescription>
-                Configure default settings for your invoices and billing.
+                Configure default settings for your invoices.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={invoiceForm.handleSubmit(handleInvoiceSettingsSave)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="invoicePrefix">Invoice Prefix</Label>
+              <form onSubmit={handleInvoiceSettingsSave} className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <FormItem>
+                    <FormLabel>Invoice Prefix</FormLabel>
                     <Input
-                      id="invoicePrefix"
-                      {...invoiceForm.register('invoicePrefix')}
+                      value={invoiceSettings.invoicePrefix}
+                      onChange={handleInvoiceSettingsChange('invoicePrefix')}
                       placeholder="INV"
                     />
-                    {invoiceForm.formState.errors.invoicePrefix && (
-                      <p className="text-sm text-destructive">
-                        {invoiceForm.formState.errors.invoicePrefix.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nextInvoiceNumber">Next Invoice Number</Label>
+                  </FormItem>
+
+                  <FormItem>
+                    <FormLabel>Next Invoice Number</FormLabel>
                     <Input
-                      id="nextInvoiceNumber"
                       type="number"
-                      {...invoiceForm.register('nextInvoiceNumber', { valueAsNumber: true })}
-                      placeholder="1"
+                      min="1"
+                      value={invoiceSettings.nextInvoiceNumber}
+                      onChange={handleInvoiceSettingsChange('nextInvoiceNumber')}
                     />
-                    {invoiceForm.formState.errors.nextInvoiceNumber && (
-                      <p className="text-sm text-destructive">
-                        {invoiceForm.formState.errors.nextInvoiceNumber.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="defaultDueDays">Default Due Days</Label>
+                  </FormItem>
+
+                  <FormItem>
+                    <FormLabel>Default Due Days</FormLabel>
                     <Input
-                      id="defaultDueDays"
                       type="number"
-                      {...invoiceForm.register('defaultDueDays', { valueAsNumber: true })}
-                      placeholder="30"
+                      min="0"
+                      value={invoiceSettings.defaultDueDays}
+                      onChange={handleInvoiceSettingsChange('defaultDueDays')}
                     />
-                    {invoiceForm.formState.errors.defaultDueDays && (
-                      <p className="text-sm text-destructive">
-                        {invoiceForm.formState.errors.defaultDueDays.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="currency">Default Currency</Label>
-                    <Select
-                      value={invoiceForm.watch('currency')}
-                      onValueChange={(value) => invoiceForm.setValue('currency', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USD">USD - US Dollar</SelectItem>
-                        <SelectItem value="EUR">EUR - Euro</SelectItem>
-                        <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                        <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                        <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                        <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="taxRate">Default Tax Rate (%)</Label>
-                    <Input
-                      id="taxRate"
-                      type="number"
-                      step="0.01"
-                      {...invoiceForm.register('taxRate', { valueAsNumber: true })}
-                      placeholder="0"
-                    />
-                    {invoiceForm.formState.errors.taxRate && (
-                      <p className="text-sm text-destructive">
-                        {invoiceForm.formState.errors.taxRate.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="defaultPaymentTerms">Default Payment Terms</Label>
-                    <Textarea
-                      id="defaultPaymentTerms"
-                      {...invoiceForm.register('defaultPaymentTerms')}
-                      placeholder="Payment is due within 30 days of invoice date. Late payments may incur fees."
-                      rows={3}
-                    />
-                  </div>
+                  </FormItem>
                 </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <select
+                      value={invoiceSettings.currency}
+                      onChange={(e) => setInvoiceSettings(prev => ({ ...prev, currency: e.target.value }))}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                      <option value="INR">INR (₹)</option>
+                    </select>
+                  </FormItem>
+
+                  <FormItem>
+                    <FormLabel>Tax Rate (%)</FormLabel>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={invoiceSettings.taxRate}
+                      onChange={handleInvoiceSettingsChange('taxRate')}
+                    />
+                  </FormItem>
+                </div>
+
+                <FormItem>
+                  <FormLabel>Default Payment Terms</FormLabel>
+                  <Input
+                    value={invoiceSettings.defaultPaymentTerms}
+                    onChange={handleInvoiceSettingsChange('defaultPaymentTerms')}
+                    placeholder="Net 30"
+                  />
+                </FormItem>
+
                 <div className="flex justify-end">
                   <Button type="submit" disabled={isSaving}>
                     <Save className="mr-2 h-4 w-4" />
@@ -552,204 +405,6 @@ export default function SettingsPage() {
               </form>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Notifications Tab */}
-        <TabsContent value="notifications">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notification Preferences
-              </CardTitle>
-              <CardDescription>
-                Choose what notifications you want to receive and how.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Email Notifications</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Receive notifications via email
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.emailNotifications}
-                    onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, emailNotifications: checked }))
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Invoice Reminders</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Get reminded about upcoming invoice due dates
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.invoiceReminders}
-                    onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, invoiceReminders: checked }))
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Payment Alerts</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Get notified when payments are received
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.paymentAlerts}
-                    onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, paymentAlerts: checked }))
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Weekly Reports</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Receive weekly business summary reports
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.weeklyReports}
-                    onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, weeklyReports: checked }))
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Overdue Reminders</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Get notified about overdue invoices
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.overdueReminders}
-                    onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, overdueReminders: checked }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={handleNotificationSave} disabled={isSaving}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSaving ? 'Saving...' : 'Save Preferences'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Preferences Tab */}
-        <TabsContent value="preferences">
-          <div className="space-y-6">
-            {/* Theme Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Appearance
-                </CardTitle>
-                <CardDescription>
-                  Customize the look and feel of your application.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Theme</Label>
-                    <Select value={theme} onValueChange={setTheme}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Select theme" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="dark">Dark</SelectItem>
-                        <SelectItem value="system">System</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Data Management */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Data Management
-                </CardTitle>
-                <CardDescription>
-                  Export your data or reset your settings.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-0.5">
-                      <div className="font-medium">Export Data</div>
-                      <div className="text-sm text-muted-foreground">
-                        Download all your invoices, clients, and expenses as JSON
-                      </div>
-                    </div>
-                    <Button onClick={exportData} variant="outline">
-                      <Download className="mr-2 h-4 w-4" />
-                      Export
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between p-4 border rounded-lg border-destructive/20">
-                    <div className="space-y-0.5">
-                      <div className="font-medium text-destructive">Reset Settings</div>
-                      <div className="text-sm text-muted-foreground">
-                        Reset all settings to default values (data will remain)
-                      </div>
-                    </div>
-                    <Button onClick={resetAllSettings} variant="destructive">
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                      Reset
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* System Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>System Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Version:</span>
-                    <Badge variant="secondary">2.0.0</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Last Updated:</span>
-                    <span>August 2025</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Database:</span>
-                    <span>Supabase</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
       </Tabs>
     </div>
