@@ -7,12 +7,16 @@ export interface Client {
   phone?: string;
   address?: string;
   company?: string;
+  contact_name?: string;
+  payment_terms?: string;
   status?: 'active' | 'inactive';
   created_at?: string;
   updated_at?: string;
+  
   // Dashboard statistics - these are computed/joined fields from database queries
   total_invoices?: number;
   total_revenue?: number;
+  total_amount?: number;
 }
 
 export interface ClientFormData {
@@ -21,6 +25,8 @@ export interface ClientFormData {
   phone?: string;
   address?: string;
   company?: string;
+  contact_name?: string;
+  payment_terms?: string;
   status?: 'active' | 'inactive';
 }
 
