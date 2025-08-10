@@ -1,135 +1,135 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import Link from 'next/link';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useClients } from '@/features/clients/hooks/use-clients';
-import { useSettings } from '@/features/settings/hooks/use-settings';
-import { useCreateInvoice, useNextInvoiceNumber } from '@/features/invoices/hooks/use-invoices';
-import { LineItem } from '@/types';
-import { ArrowLeft, Plus, Trash2, Calculator } from 'lucide-react';
-import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
-const invoiceSchema = z.object({
-  clientId: z.string().min(1, 'Client is required'),
-  date: z.string().min(1, 'Issue date is required'),
-  dueDate: z.string().min(1, 'Due date is required'),
-  status: z.enum(['Draft', 'Pending', 'Paid', 'Overdue', 'Cancelled']),
-  notes: z.string().optional(),
-  terms: z.string().optional(),
-});
+interface InvoiceFormData {
+  client_id: string;
+  amount: number;
+  status: string;
+  issue_date: string;
+  due_date: string;
+  description: string;
+}
 
-type InvoiceFormData = z.infer<typeof invoiceSchema>;
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+}
 
 export default function CreateInvoicePage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { clients, isLoading: clientsLoading } = useClients();
-  const { settings } = useSettings();
-  const { data: nextNumber } = useNextInvoiceNumber();
-  const createInvoice = useCreateInvoice();
 
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: '', quantity: 1, rate: 0, amount: 0 }
-  ]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const form = useForm<InvoiceFormData>({
-    resolver: zodResolver(invoiceSchema),
-    defaultValues: {
-      clientId: '',
-      date: new Date().toISOString().split('T')[0],
-      dueDate: '',
-      status: 'Draft',
-      notes: '',
-      terms: settings?.defaultTerms || '',
-    },
+  const [formData, setFormData] = useState<InvoiceFormData>({
+    client_id: '',
+    amount: 0,
+    status: 'Draft',
+    issue_date: new Date().toISOString().split('T')[0],
+    due_date: '',
+    description: ''
   });
 
-  const selectedClientId = form.watch('clientId');
-  const issueDate = form.watch('date');
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-  // Auto-calculate due date based on client payment terms
-  const updateDueDate = () => {
-    if (selectedClientId && issueDate) {
-      const client = clients?.find(c => c.id === selectedClientId);
-      if (client?.payment_terms) {
-        const dueDate = new Date(issueDate);
-        dueDate.setDate(dueDate.getDate() + client.payment_terms);
-        form.setValue('dueDate', dueDate.toISOString().split('T')[0]);
-      }
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const loadClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name, email')
+        .order('name');
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Update line item calculations
-  const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
-    const newItems = [...lineItems];
-    newItems[index] = { ...newItems[index], [field]: value };
+  const validateForm = (): boolean => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (!formData.client_id) {
+      newErrors.client_id = 'Client is required';
+    }
+    if (!formData.amount || formData.amount <= 0) {
+      newErrors.amount = 'Amount must be greater than 0';
+    }
+    if (!formData.issue_date) {
+      newErrors.issue_date = 'Issue date is required';
+    }
+    if (!formData.due_date) {
+      newErrors.due_date = 'Due date is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (field: keyof InvoiceFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const value = field === 'amount' ? parseFloat(e.target.value) || 0 : e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    if (field === 'quantity' || field === 'rate') {
-      newItems[index].amount = Number(newItems[index].quantity) * Number(newItems[index].rate);
-    }
-    
-    setLineItems(newItems);
-  };
-
-  const addLineItem = () => {
-    setLineItems([...lineItems, { description: '', quantity: 1, rate: 0, amount: 0 }]);
-  };
-
-  const removeLineItem = (index: number) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter((_, i) => i !== index));
-    }
-  };
-
-  const calculateTotal = () => {
-    return lineItems.reduce((sum, item) => sum + Number(item.amount), 0);
-  };
-
-  const onSubmit = async (data: InvoiceFormData) => {
-    if (lineItems.length === 0 || lineItems.some(item => !item.description)) {
-      toast({
-        title: 'Invalid Line Items',
-        description: 'Please add at least one line item with a description.',
-        variant: 'destructive',
-      });
+    if (!validateForm()) {
       return;
     }
 
     setIsSubmitting(true);
-    
-    try {
-      const invoiceData = {
-        ...data,
-        number: `${settings?.invoicePrefix || 'INV'}-${String(nextNumber || 1).padStart(3, '0')}`,
-        items: lineItems,
-        subtotal: calculateTotal(),
-        total: calculateTotal(), // Add tax calculation here if needed
-      };
 
-      await createInvoice.mutateAsync(invoiceData);
-      
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .insert([{
+          ...formData,
+          invoice_number: `INV-${Date.now()}`, // Simple invoice number generation
+          created_at: new Date().toISOString()
+        }]);
+
+      if (error) throw error;
+
       toast({
-        title: 'Invoice Created',
-        description: 'Invoice has been created successfully.',
+        title: 'Success',
+        description: 'Invoice created successfully',
       });
       
       router.push('/dashboard/invoices');
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to create invoice. Please try again.',
+        description: 'Failed to create invoice',
         variant: 'destructive',
       });
     } finally {
@@ -137,269 +137,136 @@ export default function CreateInvoicePage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto py-6 max-w-4xl">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/dashboard/invoices">
-          <Button variant="outline" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <h1 className="text-2xl font-bold">Create New Invoice</h1>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/dashboard/invoices">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Invoices
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Create Invoice</h1>
+          <p className="text-muted-foreground">Create a new invoice for your client</p>
+        </div>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Invoice Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Invoice Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Invoice Number</Label>
-                  <Input 
-                    value={`${settings?.invoicePrefix || 'INV'}-${String(nextNumber || 1).padStart(3, '0')}`}
-                    readOnly 
-                    className="bg-muted"
+      {/* Form */}
+      <div className="max-w-2xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoice Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <FormItem>
+                <FormLabel>Client *</FormLabel>
+                <select
+                  value={formData.client_id}
+                  onChange={handleInputChange('client_id')}
+                  disabled={isSubmitting}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                >
+                  <option value="">Select a client</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name} ({client.email})
+                    </option>
+                  ))}
+                </select>
+                <FormMessage>{errors.client_id}</FormMessage>
+              </FormItem>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormItem>
+                  <FormLabel>Amount *</FormLabel>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.amount}
+                    onChange={handleInputChange('amount')}
+                    disabled={isSubmitting}
                   />
-                </div>
+                  <FormMessage>{errors.amount}</FormMessage>
+                </FormItem>
 
-                <FormField
-                  control={form.control}
-                  name="clientId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Client</FormLabel>
-                      <Select 
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          updateDueDate();
-                        }} 
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a client" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {clients?.map((client) => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Issue Date</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="date" 
-                            {...field} 
-                            onChange={(e) => {
-                              field.onChange(e);
-                              updateDueDate();
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="dueDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Due Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Draft">Draft</SelectItem>
-                          <SelectItem value="Pending">Pending</SelectItem>
-                          <SelectItem value="Paid">Paid</SelectItem>
-                          <SelectItem value="Overdue">Overdue</SelectItem>
-                          <SelectItem value="Cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Invoice Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Invoice Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>${calculateTotal().toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-lg border-t pt-2">
-                    <span>Total:</span>
-                    <span>${calculateTotal().toFixed(2)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Line Items */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Line Items</CardTitle>
-              <Button type="button" onClick={addLineItem} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Item
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {lineItems.map((item, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-5">
-                      <Label>Description</Label>
-                      <Input
-                        placeholder="Item description"
-                        value={item.description}
-                        onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>Quantity</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.quantity}
-                        onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>Rate</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.rate}
-                        onChange={(e) => updateLineItem(index, 'rate', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>Amount</Label>
-                      <Input
-                        type="number"
-                        value={item.amount.toFixed(2)}
-                        readOnly
-                        className="bg-muted"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => removeLineItem(index)}
-                        disabled={lineItems.length === 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <select
+                    value={formData.status}
+                    onChange={handleInputChange('status')}
+                    disabled={isSubmitting}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  >
+                    <option value="Draft">Draft</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Paid">Paid</option>
+                  </select>
+                </FormItem>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Additional Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
+              <div className="grid grid-cols-2 gap-4">
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Additional notes for the client..."
-                      className="min-h-[100px]"
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
+                  <FormLabel>Issue Date *</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.issue_date}
+                    onChange={handleInputChange('issue_date')}
+                    disabled={isSubmitting}
+                  />
+                  <FormMessage>{errors.issue_date}</FormMessage>
                 </FormItem>
-              )}
-            />
 
-            <FormField
-              control={form.control}
-              name="terms"
-              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Terms & Conditions</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Payment terms and conditions..."
-                      className="min-h-[100px]"
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
+                  <FormLabel>Due Date *</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.due_date}
+                    onChange={handleInputChange('due_date')}
+                    disabled={isSubmitting}
+                  />
+                  <FormMessage>{errors.due_date}</FormMessage>
                 </FormItem>
-              )}
-            />
-          </div>
+              </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-4">
-            <Link href="/dashboard/invoices">
-              <Button variant="outline" type="button">
-                Cancel
-              </Button>
-            </Link>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Invoice'}
-            </Button>
-          </div>
-        </form>
-      </Form>
+              <FormItem>
+                <FormLabel>Description</FormLabel>
+                <Input
+                  value={formData.description}
+                  onChange={handleInputChange('description')}
+                  placeholder="Invoice description"
+                  disabled={isSubmitting}
+                />
+              </FormItem>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push('/dashboard/invoices')}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Creating...' : 'Create Invoice'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
