@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getClient } from '@/lib/supabase/queries';
+import { getClient, updateClient } from '@/lib/supabase/queries';
 import { ClientForm } from '@/features/clients/components/client-form';
+import type { ClientFormData } from '@/types/client';
 
 export default function EditClientPage() {
   const params = useParams();
@@ -22,11 +23,20 @@ export default function EditClientPage() {
     enabled: !!clientId,
   });
 
-  const handleSubmit = async (data: any) => {
-    // Handle client update logic here
+  const handleSubmit = async (data: ClientFormData) => {
     try {
-      // This would typically call an update function
-      console.log('Updating client:', data);
+      // Convert ClientFormData to Client update format
+      const updateData = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company: data.company,
+        address: data.address,
+        // Keep existing status if not provided
+        status: data.status || client?.status || 'active'
+      };
+
+      await updateClient(clientId, updateData);
       
       toast({
         title: 'Client Updated',
@@ -35,7 +45,8 @@ export default function EditClientPage() {
       
       router.push(`/dashboard/clients/${clientId}`);
     } catch (error) {
-      throw error; // Let ClientForm handle the error
+      console.error('Error updating client:', error);
+      throw error; // Let ClientForm handle the error display
     }
   };
 
