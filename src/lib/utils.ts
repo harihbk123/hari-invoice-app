@@ -14,30 +14,42 @@ export function formatCurrency(amount: number, currency = 'USD'): string {
   }).format(amount);
 }
 
-// Format date
-export function formatDate(date: string | Date, format: 'short' | 'long' | 'medium' = 'medium'): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+// Format date - Now handles undefined values
+export function formatDate(date: string | Date | undefined | null, format: 'short' | 'long' | 'medium' = 'medium'): string {
+  if (!date) return '-';
   
-  const options: Intl.DateTimeFormatOptions = {
-    short: {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    },
-    medium: {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    },
-    long: {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      return '-';
     }
-  };
+    
+    const options: Intl.DateTimeFormatOptions = {
+      short: {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      },
+      medium: {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      },
+      long: {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }
+    };
 
-  return new Intl.DateTimeFormat('en-US', options[format]).format(dateObj);
+    return new Intl.DateTimeFormat('en-US', options[format]).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '-';
+  }
 }
 
 // Format number
@@ -102,4 +114,16 @@ export function generateRandomColor(): string {
     '#ec4899', '#f43f5e'
   ];
   return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// Validate email
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Validate phone
+export function isValidPhone(phone: string): boolean {
+  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+  return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
 }
