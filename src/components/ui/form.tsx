@@ -1,4 +1,4 @@
-// src/components/ui/form.tsx
+// src/components/ui/form.tsx - Simple Next.js form components
 import React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -6,8 +6,9 @@ export const Form = ({ children, ...props }: React.FormHTMLAttributes<HTMLFormEl
   return <form {...props}>{children}</form>;
 };
 
+// Simple FormField that just wraps children
 export const FormField = ({ children }: { children: React.ReactNode }) => {
-  return <div>{children}</div>;
+  return <>{children}</>;
 };
 
 export const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
