@@ -1,26 +1,21 @@
 'use client';
 
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import type { Expense } from '@/types/expense';
 
-const expenseSchema = z.object({
-  description: z.string().min(1, 'Description is required'),
-  amount: z.number().min(0.01, 'Amount must be greater than 0'),
-  category: z.string().min(1, 'Category is required'),
-  date: z.string().min(1, 'Date is required'),
-  payment_method: z.string().optional(),
-  is_reimbursable: z.boolean().optional(),
-});
-
-type ExpenseFormData = z.infer<typeof expenseSchema>;
+interface ExpenseFormData {
+  description: string;
+  amount: number;
+  category: string;
+  date: string;
+  payment_method: string;
+  is_reimbursable: boolean;
+}
 
 interface ExpenseFormProps {
   expense?: Expense;
@@ -29,24 +24,78 @@ interface ExpenseFormProps {
   isLoading?: boolean;
 }
 
+interface FormErrors {
+  description?: string;
+  amount?: string;
+  category?: string;
+  date?: string;
+}
+
 export function ExpenseForm({ expense, onSubmit, onCancel, isLoading }: ExpenseFormProps) {
   const { toast } = useToast();
 
-  const form = useForm<ExpenseFormData>({
-    resolver: zodResolver(expenseSchema),
-    defaultValues: {
-      description: expense?.description || '',
-      amount: expense?.amount || 0,
-      category: expense?.category || '',
-      date: expense?.date || new Date().toISOString().split('T')[0],
-      payment_method: expense?.payment_method || '',
-      is_reimbursable: expense?.is_reimbursable || false,
-    },
+  const [formData, setFormData] = useState<ExpenseFormData>({
+    description: expense?.description || '',
+    amount: expense?.amount || 0,
+    category: expense?.category || '',
+    date: expense?.date || new Date().toISOString().split('T')[0],
+    payment_method: expense?.payment_method || '',
+    is_reimbursable: expense?.is_reimbursable || false,
   });
 
-  const handleSubmit = async (data: ExpenseFormData) => {
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    }
+
+    if (!formData.amount || formData.amount <= 0) {
+      newErrors.amount = 'Amount must be greater than 0';
+    }
+
+    if (!formData.category.trim()) {
+      newErrors.category = 'Category is required';
+    }
+
+    if (!formData.date) {
+      newErrors.date = 'Date is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (field: keyof ExpenseFormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = field === 'amount' ? parseFloat(e.target.value) || 0 : 
+                  field === 'is_reimbursable' ? e.target.checked :
+                  e.target.value;
+
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors[field as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      await onSubmit(data);
+      await onSubmit(formData);
       toast({
         title: 'Success',
         description: expense ? 'Expense updated successfully' : 'Expense created successfully',
@@ -66,143 +115,96 @@ export function ExpenseForm({ expense, onSubmit, onCancel, isLoading }: ExpenseF
         <CardTitle>{expense ? 'Edit Expense' : 'Create New Expense'}</CardTitle>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Enter expense description"
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormItem>
+            <FormLabel>Description</FormLabel>
+            <Input
+              placeholder="Enter expense description"
+              disabled={isLoading}
+              value={formData.description}
+              onChange={handleInputChange('description')}
             />
+            <FormMessage>{errors.description}</FormMessage>
+          </FormItem>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        disabled={isLoading}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <div className="grid grid-cols-2 gap-4">
+            <FormItem>
+              <FormLabel>Amount</FormLabel>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                disabled={isLoading}
+                value={formData.amount}
+                onChange={handleInputChange('amount')}
               />
+              <FormMessage>{errors.amount}</FormMessage>
+            </FormItem>
 
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="date"
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <FormItem>
+              <FormLabel>Date</FormLabel>
+              <Input
+                type="date"
+                disabled={isLoading}
+                value={formData.date}
+                onChange={handleInputChange('date')}
               />
-            </div>
+              <FormMessage>{errors.date}</FormMessage>
+            </FormItem>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="e.g., Office Supplies, Travel"
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <div className="grid grid-cols-2 gap-4">
+            <FormItem>
+              <FormLabel>Category</FormLabel>
+              <Input
+                placeholder="e.g., Office Supplies, Travel"
+                disabled={isLoading}
+                value={formData.category}
+                onChange={handleInputChange('category')}
               />
+              <FormMessage>{errors.category}</FormMessage>
+            </FormItem>
 
-              <FormField
-                control={form.control}
-                name="payment_method"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment Method</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="e.g., Credit Card, Cash"
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <FormItem>
+              <FormLabel>Payment Method</FormLabel>
+              <Input
+                placeholder="e.g., Credit Card, Cash"
+                disabled={isLoading}
+                value={formData.payment_method}
+                onChange={handleInputChange('payment_method')}
               />
-            </div>
+            </FormItem>
+          </div>
 
-            <FormField
-              control={form.control}
-              name="is_reimbursable"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      checked={field.value}
-                      onChange={field.onChange}
-                      disabled={isLoading}
-                      className="h-4 w-4"
-                    />
-                  </FormControl>
-                  <FormLabel className="text-sm font-normal">
-                    This expense is reimbursable
-                  </FormLabel>
-                </FormItem>
-              )}
+          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+            <input
+              type="checkbox"
+              checked={formData.is_reimbursable}
+              onChange={handleInputChange('is_reimbursable')}
+              disabled={isLoading}
+              className="h-4 w-4"
             />
+            <FormLabel className="text-sm font-normal">
+              This expense is reimbursable
+            </FormLabel>
+          </FormItem>
 
-            <div className="flex justify-end space-x-2 pt-4">
-              {onCancel && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onCancel}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-              )}
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : expense ? 'Update Expense' : 'Create Expense'}
+          <div className="flex justify-end space-x-2 pt-4">
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                disabled={isLoading}
+              >
+                Cancel
               </Button>
-            </div>
-          </form>
-        </Form>
+            )}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Saving...' : expense ? 'Update Expense' : 'Create Expense'}
+            </Button>
+          </div>
+        </form>
       </CardContent>
     </Card>
   );
