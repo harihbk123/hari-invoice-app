@@ -10,6 +10,9 @@ export interface Client {
   status?: 'active' | 'inactive';
   created_at?: string;
   updated_at?: string;
+  // Dashboard statistics - these are computed/joined fields
+  total_invoices?: number;
+  total_revenue?: number;
 }
 
 export interface Invoice {
