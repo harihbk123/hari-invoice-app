@@ -89,8 +89,3 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     );
   }
 );
-
-// Utility function
-function cn(...classes: (string | undefined)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
