@@ -1,91 +1,144 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Receipt, Edit, Trash2, Mail, Phone, MapPin } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { getClient, getClientInvoices } from '@/lib/supabase/queries';
-import { useStore } from '@/store';
+import { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { 
+  ArrowLeft, Edit, Trash2, Mail, Phone, MapPin, 
+  Building2, Calendar, DollarSign, FileText, Receipt 
+} from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
-export default function ClientDetailsPage() {
-  const params = useParams();
+export default function ClientDetailPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const params = useParams();
   const clientId = params.id as string;
+  const { toast } = useToast();
 
-  const { data: client, isLoading: isLoadingClient, error: clientError } = useQuery({
-    queryKey: ['client', clientId],
-    queryFn: () => getClient(clientId),
-    enabled: !!clientId,
-  });
+  const [client, setClient] = useState<any>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
 
-  const { data: invoices, isLoading: isLoadingInvoices } = useQuery({
-    queryKey: ['client-invoices', clientId],
-    queryFn: () => getClientInvoices(clientId),
-    enabled: !!clientId,
-  });
+  useEffect(() => {
+    loadClient();
+    loadInvoices();
+  }, [clientId]);
 
-  const handleDeleteClient = async () => {
-    if (!client) return;
-    
-    const confirmed = confirm(`Are you sure you want to delete ${client.name}? This action cannot be undone.`);
-    if (!confirmed) return;
-
+  const loadClient = async () => {
     try {
-      // Add delete functionality here
-      toast({
-        title: 'Client Deleted',
-        description: `${client.name} has been successfully deleted.`,
-      });
-      router.push('/dashboard/clients');
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', clientId)
+        .single();
+
+      if (error) throw error;
+      setClient(data);
     } catch (error) {
+      console.error('Error loading client:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete client. Please try again.',
+        description: 'Failed to load client details',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadInvoices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setInvoices(data || []);
+    } catch (error) {
+      console.error('Error loading invoices:', error);
+    } finally {
+      setIsLoadingInvoices(false);
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!confirm(`Are you sure you want to delete ${client?.name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Client Deleted',
+        description: 'Client has been deleted successfully.',
+      });
+
+      router.push('/dashboard/clients');
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete client',
         variant: 'destructive',
       });
     }
   };
 
-  if (isLoadingClient) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-muted-foreground">Loading client details...</div>
-      </div>
-    );
-  }
-
-  if (clientError || !client) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-destructive">Client Not Found</h2>
-          <p className="text-muted-foreground mt-2">The client you're looking for doesn't exist.</p>
-          <Button asChild className="mt-4">
-            <Link href="/dashboard/clients">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Clients
-            </Link>
-          </Button>
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="h-64 bg-gray-200 rounded"></div>
+            <div className="md:col-span-2 h-64 bg-gray-200 rounded"></div>
+          </div>
         </div>
       </div>
     );
   }
 
-  const totalInvoices = invoices?.length || 0;
-  const totalRevenue = invoices?.reduce((sum, invoice) => sum + invoice.amount, 0) || 0;
-  const paidInvoices = invoices?.filter(invoice => invoice.status === 'Paid')?.length || 0;
-  const pendingAmount = invoices?.filter(invoice => invoice.status === 'Pending')?.reduce((sum, invoice) => sum + invoice.amount, 0) || 0;
+  if (!client) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold text-gray-900">Client Not Found</h2>
+        <p className="text-gray-600 mt-2">The client you're looking for doesn't exist.</p>
+        <Button className="mt-4" onClick={() => router.push('/dashboard/clients')}>
+          Back to Clients
+        </Button>
+      </div>
+    );
+  }
+
+  // Calculate stats
+  const totalInvoices = invoices.length;
+  const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+  const paidInvoices = invoices.filter(inv => inv.status === 'Paid').length;
+  const pendingAmount = invoices
+    .filter(inv => inv.status === 'Pending')
+    .reduce((sum, inv) => sum + (inv.amount || 0), 0);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard/clients">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Clients
@@ -164,7 +217,7 @@ export default function ClientDetailsPage() {
               <div>
                 <p className="text-sm font-medium">Client Since</p>
                 <p className="text-sm text-muted-foreground">
-                  {new Date(client.created_at || '').toLocaleDateString()}
+                  {formatDate(client.created_at)}
                 </p>
               </div>
             </CardContent>
@@ -218,41 +271,49 @@ export default function ClientDetailsPage() {
                   <div className="text-sm text-muted-foreground">Loading invoices...</div>
                 </div>
               ) : invoices && invoices.length > 0 ? (
-                <div className="space-y-3">
-                  {invoices.slice(0, 5).map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">Invoice #{invoice.invoice_number}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(invoice.created_at || '').toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">${invoice.amount.toLocaleString()}</p>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          invoice.status === 'Paid' 
-                            ? 'bg-green-100 text-green-800'
-                            : invoice.status === 'Pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {invoice.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell>
+                          <Link 
+                            href={`/dashboard/invoices/${invoice.id}`}
+                            className="text-blue-600 hover:underline"
+                          >
+                            {invoice.invoice_number || invoice.id}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{formatDate(invoice.created_at)}</TableCell>
+                        <TableCell>{formatCurrency(invoice.amount)}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            invoice.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                            invoice.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                            invoice.status === 'Overdue' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {invoice.status}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : (
-                <div className="text-center py-8">
-                  <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium">No invoices yet</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Create your first invoice for this client
-                  </p>
-                  <Button asChild>
+                <div className="text-center py-4">
+                  <FileText className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-sm text-muted-foreground">No invoices yet</p>
+                  <Button size="sm" className="mt-2" asChild>
                     <Link href={`/dashboard/invoices/create?client=${clientId}`}>
-                      <Receipt className="mr-2 h-4 w-4" />
-                      Create Invoice
+                      Create First Invoice
                     </Link>
                   </Button>
                 </div>
