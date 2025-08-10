@@ -260,3 +260,16 @@ export const useStore = create<StoreState>((set, get) => ({
     isLoadingExpenses: false,
   })
 }))
+
+// Export useClientStore as an alias for compatibility
+export const useClientStore = () => {
+  const store = useStore();
+  return {
+    clients: store.clients,
+    addClient: store.addClient,
+    updateClient: store.updateClient,
+    removeClient: store.removeClient,
+    setClients: store.setClients,
+    isLoadingClients: store.isLoadingClients,
+  };
+};
