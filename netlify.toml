@@ -1,37 +1,25 @@
 # netlify.toml
 [build]
-  command = "npm ci && npm run build"
+  command = "npm install && npm run build"
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20.11.0"
+  NODE_VERSION = "18"
   NPM_CONFIG_PRODUCTION = "false"
-  NPM_CONFIG_AUDIT_LEVEL = "moderate"
 
 # Production context
 [context.production]
-  command = "npm ci && npm run build"
+  command = "npm install && npm run build"
   
 [context.production.environment]
   NEXT_TELEMETRY_DISABLED = "1"
 
 # Branch deploys (staging)
 [context.deploy-preview]
-  command = "npm ci && npm run build"
+  command = "npm install && npm run build"
   
 [context.branch-deploy]
-  command = "npm ci && npm run build"
-
-# Redirects and rewrites
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+  command = "npm install && npm run build"
 
 # Headers for security
 [[headers]]
@@ -56,8 +44,3 @@
 # Plugin configuration
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-# Environment variables (set these in Netlify dashboard)
-# NEXT_PUBLIC_SUPABASE_URL
-# NEXT_PUBLIC_SUPABASE_ANON_KEY
-# NEXT_PUBLIC_APP_URL
