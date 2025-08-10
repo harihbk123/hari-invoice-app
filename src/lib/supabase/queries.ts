@@ -249,3 +249,135 @@ export async function updateSettings(settings: Partial<Settings>): Promise<Setti
   if (error) throw error;
   return data;
 }
+
+// Analytics Queries
+export interface AnalyticsData {
+  totalRevenue: number;
+  totalExpenses: number;
+  totalClients: number;
+  totalInvoices: number;
+  monthlyRevenue: Array<{ month: string; revenue: number }>;
+  expensesByCategory: Array<{ category: string; amount: number }>;
+  clientRevenue: Array<{ client: string; revenue: number }>;
+  invoiceStatusDistribution: Array<{ status: string; count: number }>;
+}
+
+export async function getAnalyticsData(): Promise<AnalyticsData> {
+  try {
+    // Fetch all data in parallel
+    const [invoicesResult, clientsResult, expensesResult] = await Promise.all([
+      supabase.from('invoices').select(`
+        *,
+        clients (
+          id,
+          name,
+          email,
+          company
+        )
+      `),
+      supabase.from('clients').select('*'),
+      supabase.from('expenses').select('*')
+    ]);
+
+    const invoices = invoicesResult.data || [];
+    const clients = clientsResult.data || [];
+    const expenses = expensesResult.data || [];
+
+    // Calculate basic metrics
+    const totalRevenue = invoices
+      .filter(inv => inv.status === 'Paid')
+      .reduce((sum, inv) => sum + inv.amount, 0);
+    
+    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+    // Monthly revenue calculation
+    const monthlyRevenue = calculateMonthlyRevenue(invoices);
+    
+    // Expenses by category
+    const expensesByCategory = calculateExpensesByCategory(expenses);
+    
+    // Client revenue
+    const clientRevenue = calculateClientRevenue(invoices);
+    
+    // Invoice status distribution
+    const invoiceStatusDistribution = calculateInvoiceStatusDistribution(invoices);
+
+    return {
+      totalRevenue,
+      totalExpenses,
+      totalClients: clients.length,
+      totalInvoices: invoices.length,
+      monthlyRevenue,
+      expensesByCategory,
+      clientRevenue,
+      invoiceStatusDistribution
+    };
+  } catch (error) {
+    console.error('Error fetching analytics data:', error);
+    throw error;
+  }
+}
+
+// Helper functions for analytics calculations
+function calculateMonthlyRevenue(invoices: any[]): Array<{ month: string; revenue: number }> {
+  const monthlyData = new Map<string, number>();
+  
+  invoices
+    .filter(inv => inv.status === 'Paid')
+    .forEach(invoice => {
+      const date = new Date(invoice.created_at);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      const monthName = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+      
+      monthlyData.set(monthName, (monthlyData.get(monthName) || 0) + invoice.amount);
+    });
+  
+  return Array.from(monthlyData.entries()).map(([month, revenue]) => ({
+    month,
+    revenue
+  }));
+}
+
+function calculateExpensesByCategory(expenses: any[]): Array<{ category: string; amount: number }> {
+  const categoryData = new Map<string, number>();
+  
+  expenses.forEach(expense => {
+    const category = expense.category || 'Uncategorized';
+    categoryData.set(category, (categoryData.get(category) || 0) + expense.amount);
+  });
+  
+  return Array.from(categoryData.entries()).map(([category, amount]) => ({
+    category,
+    amount
+  }));
+}
+
+function calculateClientRevenue(invoices: any[]): Array<{ client: string; revenue: number }> {
+  const clientData = new Map<string, number>();
+  
+  invoices
+    .filter(inv => inv.status === 'Paid')
+    .forEach(invoice => {
+      const clientName = invoice.clients?.name || 'Unknown Client';
+      clientData.set(clientName, (clientData.get(clientName) || 0) + invoice.amount);
+    });
+  
+  return Array.from(clientData.entries())
+    .map(([client, revenue]) => ({ client, revenue }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10); // Top 10 clients
+}
+
+function calculateInvoiceStatusDistribution(invoices: any[]): Array<{ status: string; count: number }> {
+  const statusData = new Map<string, number>();
+  
+  invoices.forEach(invoice => {
+    const status = invoice.status || 'Unknown';
+    statusData.set(status, (statusData.get(status) || 0) + 1);
+  });
+  
+  return Array.from(statusData.entries()).map(([status, count]) => ({
+    status,
+    count
+  }));
+}
