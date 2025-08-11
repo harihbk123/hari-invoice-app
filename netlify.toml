@@ -85,7 +85,3 @@
   status = 301
 
 # Fallback for SPA routes
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
