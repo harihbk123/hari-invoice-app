@@ -49,6 +49,7 @@ export interface InvoiceFormData {
   status: 'Draft' | 'Pending' | 'Paid' | 'Overdue' | 'Cancelled';
   issue_date: string;
   due_date: string;
+  invoice_number?: string;
   description?: string;
   items?: InvoiceItem[];
 }

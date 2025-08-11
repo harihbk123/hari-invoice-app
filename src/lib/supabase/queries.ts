@@ -538,8 +538,14 @@ export async function getAnalytics(): Promise<AnalyticsData> {
       totalExpenses,
       totalClients: clients.length,
       totalInvoices: invoices.length,
-      monthlyRevenue,
-      monthlyExpenses,
+      monthlyRevenue: monthlyRevenue.map((m: any) => ({
+        month: m.month,
+        revenue: m.revenue ?? 0,
+      })),
+      monthlyExpenses: monthlyExpenses.map((m: any) => ({
+        month: m.month,
+        expenses: m.expenses ?? 0,
+      })),
       recentInvoices: invoices.slice(0, 5),
       recentExpenses: expenses.slice(0, 5),
     };

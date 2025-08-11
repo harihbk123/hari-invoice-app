@@ -23,7 +23,7 @@ import {
   Calendar, Download, Filter, BarChart3, PieChart as PieChartIcon
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { getAnalyticsData } from '@/lib/supabase/queries';
+import { getAnalytics } from '@/lib/supabase/queries';
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState('6months');
@@ -32,7 +32,7 @@ export default function AnalyticsPage() {
   // Fixed: Remove dateRange parameter since getAnalyticsData doesn't accept it
   const { data: analytics, isLoading } = useQuery({
     queryKey: ['analytics'],
-    queryFn: () => getAnalyticsData(),
+    queryFn: () => getAnalytics(),
   });
 
   if (isLoading) {
@@ -257,7 +257,7 @@ export default function AnalyticsPage() {
                       fill="#8884d8"
                       dataKey="count"
                     >
-                      {invoiceStatusDistribution.map((entry, index) => (
+                      {invoiceStatusDistribution.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -333,7 +333,7 @@ export default function AnalyticsPage() {
                       fill="#8884d8"
                       dataKey="revenue"
                     >
-                      {clientRevenue.slice(0, 8).map((entry, index) => (
+                      {clientRevenue.slice(0, 8).map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>

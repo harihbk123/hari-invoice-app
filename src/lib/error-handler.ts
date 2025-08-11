@@ -84,7 +84,8 @@ export function parseSupabaseError(error: any): AppError {
 
 // Error message formatter
 export function getErrorMessage(error: any): string {
-  if (error instanceof AppError) {
+  // AppError is a type, not a value. Use InvoiceError or check for code property.
+  if (error instanceof InvoiceError) {
     return error.message;
   }
 
@@ -97,7 +98,7 @@ export function getErrorMessage(error: any): string {
 
 // User-friendly error messages
 export function getUserFriendlyMessage(error: any): string {
-  const appError = error instanceof AppError ? error : parseSupabaseError(error);
+  const appError = error instanceof InvoiceError ? error : parseSupabaseError(error);
 
   switch (appError.code) {
     case 'NOT_FOUND':

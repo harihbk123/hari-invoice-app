@@ -104,8 +104,13 @@ export function useCreateInvoice() {
 
   return useMutation({
     mutationFn: async (data: InvoiceFormData) => {
+      // Ensure invoice_number is present for type compatibility
+      const invoiceData = {
+        ...data,
+        invoice_number: data.invoice_number || 'TEMP',
+      };
       try {
-        const result = await createInvoice(data);
+        const result = await createInvoice(invoiceData);
         return result;
       } catch (error) {
         console.error('Error creating invoice:', error);

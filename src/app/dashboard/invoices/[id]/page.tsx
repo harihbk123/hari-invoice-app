@@ -91,11 +91,11 @@ export default function InvoiceDetailsPage() {
     try {
       const client = clients.find(c => c.id === invoice.client_id) || {
         id: invoice.client_id || '',
-        name: invoice.clients?.name || invoice.client_name || 'Unknown Client',
-        email: invoice.clients?.email || invoice.client_email || '',
-        phone: invoice.clients?.phone || invoice.client_phone || '',
-        address: invoice.clients?.address || invoice.client_address || '',
-        company: invoice.clients?.company || invoice.client_company || '',
+        name: invoice.client?.name || invoice.client_name || 'Unknown Client',
+        email: invoice.client?.email || invoice.client_email || '',
+        phone: invoice.client?.phone || invoice.client_phone || '',
+        address: invoice.client?.address || invoice.client_address || '',
+        company: invoice.client?.company || invoice.client_company || '',
       };
       
       if (settings) {
@@ -358,38 +358,38 @@ export default function InvoiceDetailsPage() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Name</label>
                   <p className="font-semibold">
-                    {invoice.clients?.name || invoice.client_name || 'Unknown Client'}
+                    {invoice.client?.name || invoice.client_name || 'Unknown Client'}
                   </p>
                 </div>
-                {(invoice.clients?.email || invoice.client_email) && (
+                {(invoice.client?.email || invoice.client_email) && (
                   <div>
                     <label className="text-sm font-medium text-gray-600">Email</label>
                     <p className="font-semibold">
-                      {invoice.clients?.email || invoice.client_email}
+                      {invoice.client?.email || invoice.client_email}
                     </p>
                   </div>
                 )}
-                {(invoice.clients?.company || invoice.client_company) && (
+                {(invoice.client?.company || invoice.client_company) && (
                   <div>
                     <label className="text-sm font-medium text-gray-600">Company</label>
                     <p className="font-semibold">
-                      {invoice.clients?.company || invoice.client_company}
+                      {invoice.client?.company || invoice.client_company}
                     </p>
                   </div>
                 )}
-                {(invoice.clients?.phone || invoice.client_phone) && (
+                {(invoice.client?.phone || invoice.client_phone) && (
                   <div>
                     <label className="text-sm font-medium text-gray-600">Phone</label>
                     <p className="font-semibold">
-                      {invoice.clients?.phone || invoice.client_phone}
+                      {invoice.client?.phone || invoice.client_phone}
                     </p>
                   </div>
                 )}
-                {(invoice.clients?.address || invoice.client_address) && (
+                {(invoice.client?.address || invoice.client_address) && (
                   <div>
                     <label className="text-sm font-medium text-gray-600">Address</label>
                     <p className="font-semibold">
-                      {invoice.clients?.address || invoice.client_address}
+                      {invoice.client?.address || invoice.client_address}
                     </p>
                   </div>
                 )}
