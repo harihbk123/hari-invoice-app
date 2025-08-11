@@ -1,28 +1,14 @@
+// src/app/layout.tsx
+import { AppLayout } from '@/components/layout/app-layout';
 
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import { Providers } from '@/components/providers'
-
-const inter = Inter({ subsets: ['latin'] })
-
-export const metadata: Metadata = {
-  title: 'Invoice Manager',
-  description: 'Manage your invoices, clients, and expenses',
-}
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <Providers>
+      <body>
+        <AppLayout>
           {children}
-        </Providers>
+        </AppLayout>
       </body>
     </html>
-  )
+  );
 }
