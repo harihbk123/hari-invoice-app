@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useInvoice, useDeleteInvoice, useChangeInvoiceStatus } from '@/features/invoices/hooks/use-invoices';
 import { downloadInvoicePDF } from '@/features/invoices/lib/pdf-generator';
 import { useSettings } from '@/features/settings/hooks/use-settings';
+import { useClients } from '@/features/clients/hooks/use-clients';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { 
   ArrowLeft, Edit, Trash2, Download, Mail, 
@@ -30,10 +31,12 @@ export default function InvoiceDetailsPage() {
   const deleteInvoice = useDeleteInvoice();
   const changeStatus = useChangeInvoiceStatus();
   const { settings } = useSettings();
+  const { clients } = useClients();
   
   const [isDeleting, setIsDeleting] = useState(false);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState('');
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
@@ -48,10 +51,10 @@ export default function InvoiceDetailsPage() {
         description: 'Invoice has been deleted successfully.',
       });
       router.push('/dashboard/invoices');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to delete invoice.',
+        description: error.message || 'Failed to delete invoice.',
         variant: 'destructive',
       });
     } finally {
@@ -70,10 +73,11 @@ export default function InvoiceDetailsPage() {
         description: 'Invoice status has been updated successfully.',
       });
       setNewStatus('');
-    } catch (error) {
+      setShowStatusDialog(false);
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to update invoice status.',
+        description: error.message || 'Failed to update invoice status.',
         variant: 'destructive',
       });
     } finally {
@@ -81,26 +85,33 @@ export default function InvoiceDetailsPage() {
     }
   };
 
-  const handleDownloadPDF = async () => {
-    if (!invoice || !settings) return;
-    
+  const handleDownloadPDF = () => {
+    if (!invoice) return;
+
     try {
-      // Get client data for PDF - handle both nested and flattened structures
-      const client = invoice.client || {
-        id: invoice.client_id,
-        name: invoice.client_name || 'Unknown Client',
-        email: invoice.client_email || '',
-        phone: invoice.client_phone || '',
-        address: invoice.client_address || '',
-        company: invoice.client_company || ''
+      const client = clients.find(c => c.id === invoice.client_id) || {
+        id: invoice.client_id || '',
+        name: invoice.clients?.name || invoice.client_name || 'Unknown Client',
+        email: invoice.clients?.email || invoice.client_email || '',
+        phone: invoice.clients?.phone || invoice.client_phone || '',
+        address: invoice.clients?.address || invoice.client_address || '',
+        company: invoice.clients?.company || invoice.client_company || '',
       };
       
-      await downloadInvoicePDF(invoice, client, settings);
-      toast({
-        title: 'PDF Downloaded',
-        description: 'Invoice PDF has been downloaded successfully.',
-      });
-    } catch (error) {
+      if (settings) {
+        downloadInvoicePDF(invoice, client, settings);
+        toast({
+          title: 'Success',
+          description: `PDF for invoice ${invoice.invoice_number} downloaded successfully`,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Settings not loaded. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
       toast({
         title: 'Error',
         description: 'Failed to download PDF.',
@@ -110,7 +121,7 @@ export default function InvoiceDetailsPage() {
   };
 
   const getStatusVariant = (status: string): any => {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'paid': return 'success';
       case 'pending': return 'warning';
       case 'overdue': return 'destructive';
@@ -174,6 +185,54 @@ export default function InvoiceDetailsPage() {
               Edit
             </Button>
           </Link>
+          <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Edit className="mr-2 h-4 w-4" />
+                Change Status
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Change Invoice Status</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Current Status: <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
+                  </label>
+                  <Select value={newStatus} onValueChange={setNewStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select new status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Draft">Draft</SelectItem>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                      <SelectItem value="Paid">Paid</SelectItem>
+                      <SelectItem value="Overdue">Overdue</SelectItem>
+                      <SelectItem value="Cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleStatusChange}
+                    disabled={!newStatus || isChangingStatus}
+                    className="flex-1"
+                  >
+                    {isChangingStatus ? 'Updating...' : 'Update Status'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowStatusDialog(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Button 
             onClick={handleDelete} 
             variant="destructive"
@@ -186,174 +245,226 @@ export default function InvoiceDetailsPage() {
       </div>
 
       {/* Invoice Details */}
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Main Details */}
-        <div className="md:col-span-2 space-y-6">
-          {/* Status and Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Invoice Info */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Invoice Summary */}
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Invoice Status</CardTitle>
-                <Badge variant={getStatusVariant(invoice.status)}>
-                  {invoice.status}
-                </Badge>
-              </div>
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Invoice Details
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4">
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Change status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Draft">Draft</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Paid">Paid</SelectItem>
-                    <SelectItem value="Overdue">Overdue</SelectItem>
-                    <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button 
-                  onClick={handleStatusChange}
-                  disabled={!newStatus || isChangingStatus}
-                >
-                  {isChangingStatus ? 'Updating...' : 'Update Status'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Invoice Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Invoice Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Invoice Number</p>
+                  <label className="text-sm font-medium text-gray-600">Invoice Number</label>
                   <p className="font-semibold">{invoice.invoice_number || invoice.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Amount</p>
-                  <p className="font-semibold text-lg">{formatCurrency(invoice.amount)}</p>
+                  <label className="text-sm font-medium text-gray-600">Status</label>
+                  <div className="mt-1">
+                    <Badge variant={getStatusVariant(invoice.status)}>
+                      {invoice.status || 'Draft'}
+                    </Badge>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Issue Date</p>
+                  <label className="text-sm font-medium text-gray-600">Issue Date</label>
                   <p className="font-semibold">{formatDate(invoice.issue_date)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Due Date</p>
+                  <label className="text-sm font-medium text-gray-600">Due Date</label>
                   <p className="font-semibold">{formatDate(invoice.due_date)}</p>
                 </div>
-              </div>
-              {invoice.description && (
-                <div>
-                  <p className="text-sm text-gray-600">Description</p>
-                  <p className="font-semibold">{invoice.description}</p>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium text-gray-600">Description</label>
+                  <p className="font-semibold">{invoice.description || 'No description'}</p>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Line Items */}
-          {invoice.items && invoice.items.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Line Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
-                      <TableHead className="text-right">Rate</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invoice.items.map((item: any, index: number) => (
+          {/* Items */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Invoice Items</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Rate</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0 ? (
+                    invoice.items.map((item: any, index: number) => (
                       <TableRow key={index}>
-                        <TableCell>{item.description}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.rate)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                        <TableCell>{item.description || 'No description'}</TableCell>
+                        <TableCell>{item.quantity || 0}</TableCell>
+                        <TableCell>{formatCurrency(item.rate || 0)}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(item.amount || 0)}
+                        </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-gray-500">
+                        No items found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+
+              {/* Totals */}
+              <div className="mt-4 space-y-2 border-t pt-4">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span className="font-medium">{formatCurrency(invoice.subtotal || 0)}</span>
+                </div>
+                {invoice.tax && invoice.tax > 0 && (
+                  <div className="flex justify-between">
+                    <span>Tax:</span>
+                    <span className="font-medium">{formatCurrency(invoice.tax)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  <span>Total:</span>
+                  <span>{formatCurrency(invoice.amount || 0)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Client Details */}
+        {/* Client Info Sidebar */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Client Details</CardTitle>
+              <CardTitle className="flex items-center">
+                <User className="mr-2 h-5 w-5" />
+                Client Information
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600">Name</p>
-                <p className="font-semibold">
-                  {invoice.client?.name || invoice.client_name || 'Unknown Client'}
-                </p>
-              </div>
-              {(invoice.client?.email || invoice.client_email) && (
+            <CardContent>
+              <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-semibold">{invoice.client?.email || invoice.client_email}</p>
-                </div>
-              )}
-              {(invoice.client?.phone || invoice.client_phone) && (
-                <div>
-                  <p className="text-sm text-gray-600">Phone</p>
-                  <p className="font-semibold">{invoice.client?.phone || invoice.client_phone}</p>
-                </div>
-              )}
-              {(invoice.client?.address || invoice.client_address) && (
-                <div>
-                  <p className="text-sm text-gray-600">Address</p>
-                  <p className="font-semibold whitespace-pre-line">
-                    {invoice.client?.address || invoice.client_address}
-                  </p>
-                </div>
-              )}
-              {(invoice.client?.company || invoice.client_company) && (
-                <div>
-                  <p className="text-sm text-gray-600">Company</p>
+                  <label className="text-sm font-medium text-gray-600">Name</label>
                   <p className="font-semibold">
-                    {invoice.client?.company || invoice.client_company}
+                    {invoice.clients?.name || invoice.client_name || 'Unknown Client'}
                   </p>
                 </div>
-              )}
+                {(invoice.clients?.email || invoice.client_email) && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Email</label>
+                    <p className="font-semibold">
+                      {invoice.clients?.email || invoice.client_email}
+                    </p>
+                  </div>
+                )}
+                {(invoice.clients?.company || invoice.client_company) && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Company</label>
+                    <p className="font-semibold">
+                      {invoice.clients?.company || invoice.client_company}
+                    </p>
+                  </div>
+                )}
+                {(invoice.clients?.phone || invoice.client_phone) && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Phone</label>
+                    <p className="font-semibold">
+                      {invoice.clients?.phone || invoice.client_phone}
+                    </p>
+                  </div>
+                )}
+                {(invoice.clients?.address || invoice.client_address) && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Address</label>
+                    <p className="font-semibold">
+                      {invoice.clients?.address || invoice.client_address}
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Payment Details */}
+          {/* Payment Info */}
           <Card>
             <CardHeader>
-              <CardTitle>Payment Summary</CardTitle>
+              <CardTitle className="flex items-center">
+                <DollarSign className="mr-2 h-5 w-5" />
+                Payment Information
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="font-semibold">{formatCurrency(invoice.subtotal || invoice.amount)}</span>
-              </div>
-              {invoice.tax && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Tax</span>
-                  <span className="font-semibold">{formatCurrency(invoice.tax)}</span>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Amount Due</label>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(invoice.amount || 0)}
+                  </p>
                 </div>
-              )}
-              <div className="border-t pt-2">
-                <div className="flex justify-between">
-                  <span className="text-lg font-semibold">Total</span>
-                  <span className="text-lg font-semibold">{formatCurrency(invoice.amount)}</span>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Payment Status</label>
+                  <div className="mt-1">
+                    <Badge variant={getStatusVariant(invoice.status)}>
+                      {invoice.status || 'Draft'}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Due Date</label>
+                  <p className="font-semibold flex items-center">
+                    <Calendar className="mr-1 h-4 w-4" />
+                    {formatDate(invoice.due_date)}
+                  </p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button onClick={handleDownloadPDF} className="w-full" variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF
+              </Button>
+              <Link href={`/dashboard/invoices/${invoiceId}/edit`} className="block">
+                <Button className="w-full" variant="outline">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Invoice
+                </Button>
+              </Link>
+              <Button 
+                onClick={() => setShowStatusDialog(true)} 
+                className="w-full" 
+                variant="outline"
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Change Status
+              </Button>
+              <Button 
+                onClick={handleDelete} 
+                className="w-full" 
+                variant="destructive"
+                disabled={isDeleting}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {isDeleting ? 'Deleting...' : 'Delete Invoice'}
+              </Button>
             </CardContent>
           </Card>
         </div>
