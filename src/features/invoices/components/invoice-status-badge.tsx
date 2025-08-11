@@ -26,10 +26,8 @@ export function InvoiceStatusBadge({ status, showIcon = true }: InvoiceStatusBad
 
   const getStatusIcon = (status: string | null | undefined) => {
     if (!showIcon) return null;
-    
     const normalizedStatus = status?.toLowerCase();
     const iconClass = "w-3 h-3 mr-1";
-    
     switch (normalizedStatus) {
       case 'paid':
         return <CheckCircle className={iconClass} />;
@@ -74,3 +72,4 @@ export function InvoiceStatusBadge({ status, showIcon = true }: InvoiceStatusBad
       {statusText}
     </Badge>
   );
+}
