@@ -1,58 +1,52 @@
-// src/types/index.ts
+// src/components/ui/index.ts
+// Barrel export file for UI components
+// This file exports all UI components from their respective files
 
-// Re-export all types from individual files
-export * from './client';
-export * from './invoice';
-export * from './expense';
+// Core UI Components
+export * from './button'
+export * from './card'
+export * from './input'
+export * from './label'
+export * from './textarea'
+export * from './checkbox'
+export * from './switch'
+export * from './select'
+export * from './separator'
 
-// Settings type (kept here as it's not in a separate file)
-export interface Settings {
-  id: string;
-  user_id: string;
-  company_name?: string;
-  company_email?: string;
-  company_phone?: string;
-  company_address?: string;
-  company_logo?: string;
-  default_currency?: string;
-  tax_rate?: number;
-  invoice_terms?: string;
-  invoice_prefix?: string;
-  
-  // Profile information
-  profile_name?: string;
-  profile_email?: string;
-  profile_phone?: string;
-  profile_address?: string;
-  profile_gstin?: string;
-  
-  // Banking information
-  bank_name?: string;
-  bank_account?: string;
-  bank_branch?: string;
-  bank_ifsc?: string;
-  bank_swift?: string;
-  
-  created_at?: string;
-  updated_at?: string;
-}
+// Dialog and Modal Components
+export * from './dialog'
+export * from './alert-dialog'
+export * from './sheet'
 
-// Additional form types if not in separate files
-export interface SettingsFormData {
-  company_name?: string;
-  company_email?: string;
-  company_phone?: string;
-  company_address?: string;
-  default_currency?: string;
-  tax_rate?: number;
-  invoice_terms?: string;
-  profile_name?: string;
-  profile_email?: string;
-  profile_phone?: string;
-  profile_address?: string;
-  profile_gstin?: string;
-  bank_name?: string;
-  bank_account?: string;
-  bank_branch?: string;
-  bank_ifsc?: string;
-}
+// Navigation Components
+export * from './dropdown-menu'
+export * from './navigation-menu'
+export * from './menubar'
+export * from './tabs'
+
+// Display Components
+export * from './accordion'
+export * from './alert'
+export * from './avatar'
+export * from './badge'
+export * from './progress'
+export * from './skeleton'
+export * from './table'
+export * from './tooltip'
+export * from './hover-card'
+export * from './popover'
+
+// Form Components
+export * from './form'
+export * from './slider'
+export * from './toggle'
+export * from './toggle-group'
+export * from './scroll-area'
+
+// Toast Components
+export * from './toast'
+export * from './toaster'
+export * from './use-toast'
+
+// Loading Components
+export * from './loading'
