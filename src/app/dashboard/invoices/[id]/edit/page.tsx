@@ -34,7 +34,7 @@ interface FormErrors {
 export default function EditInvoicePage() {
   const router = useRouter();
   const params = useParams();
-  const invoiceId = params.id as string;
+  const invoiceId = params?.id ? String(params.id) : '';
   const { toast } = useToast();
 
   const [invoice, setInvoice] = useState<any>(null);

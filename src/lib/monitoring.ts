@@ -218,7 +218,8 @@ export class ErrorTracker {
     }
     
     if (process.env.NODE_ENV === 'development') {
-      console[level]('📝 Message captured:', logInfo)
+  const consoleLevel = level === 'warning' ? 'warn' : level;
+  (console as any)[consoleLevel]('📝 Message captured:', logInfo)
     }
   }
 }

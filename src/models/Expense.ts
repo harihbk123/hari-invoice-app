@@ -48,7 +48,8 @@ export type PaymentMethod =
   | 'bank_transfer'
   | 'wallet'
   | 'cheque'
-  | 'other';
+  | 'other'
+  | 'all';
 
 export const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string }[] = [
   { value: 'cash', label: 'Cash', icon: '💸' },

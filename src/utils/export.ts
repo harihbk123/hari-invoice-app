@@ -1,6 +1,6 @@
-import { Invoice } from '../models/invoice';
-import { Client } from '../models/client';
-import { Expense } from '../models/expense';
+import type { Invoice } from '@/types/invoice';
+import type { Client } from '@/types/client';
+import type { Expense } from '@/types/expense';
 import { formatCurrency, formatDate } from './format';
 
 // Export to CSV
@@ -46,14 +46,14 @@ export function exportToCSV(data: any[], filename: string): void {
 export function exportInvoicesToCSV(invoices: Invoice[]): void {
   const data = invoices.map(invoice => ({
     'Invoice Number': invoice.id,
-    'Client': invoice.clientName,
-    'Date Issued': formatDate(invoice.dateIssued),
-    'Due Date': formatDate(invoice.dueDate),
+  'Client': invoice.client_name,
+  'Date Issued': formatDate(invoice.issue_date ?? ''),
+  'Due Date': formatDate(invoice.due_date),
     'Status': invoice.status,
     'Subtotal': invoice.subtotal,
     'Tax': invoice.tax,
     'Total Amount': invoice.amount,
-    'Items': invoice.items.map(item => `${item.description} (${item.quantity}x${item.rate})`).join('; ')
+  'Items': (invoice.items ?? []).map((item: any) => `${item.description} (${item.quantity}x${item.rate})`).join('; ')
   }));
 
   exportToCSV(data, 'invoices');
@@ -63,13 +63,13 @@ export function exportInvoicesToCSV(invoices: Invoice[]): void {
 export function exportClientsToCSV(clients: Client[]): void {
   const data = clients.map(client => ({
     'Company Name': client.name,
-    'Contact Person': client.contactName || '',
+  'Contact Person': client.contact_name || '',
     'Email': client.email,
     'Phone': client.phone || '',
     'Address': client.address || '',
-    'Payment Terms': client.paymentTerms,
-    'Total Invoices': client.totalInvoices || 0,
-    'Total Revenue': client.totalAmount || 0
+  'Payment Terms': client.payment_terms,
+  'Total Invoices': client.total_invoices || 0,
+  'Total Revenue': client.total_amount || 0
   }));
 
   exportToCSV(data, 'clients');
@@ -78,15 +78,15 @@ export function exportClientsToCSV(clients: Client[]): void {
 // Export Expenses to CSV
 export function exportExpensesToCSV(expenses: Expense[]): void {
   const data = expenses.map(expense => ({
-    'Date': formatDate(expense.dateIncurred),
+  'Date': formatDate(expense.date_incurred ?? ''),
     'Description': expense.description,
-    'Category': expense.categoryName || 'Uncategorized',
+  'Category': expense.category_name || 'Uncategorized',
     'Amount': expense.amount,
-    'Payment Method': expense.paymentMethod,
-    'Vendor': expense.vendorName || '',
-    'Receipt Number': expense.receiptNumber || '',
-    'Business Expense': expense.isBusinessExpense ? 'Yes' : 'No',
-    'Tax Deductible': expense.taxDeductible ? 'Yes' : 'No',
+  'Payment Method': expense.payment_method,
+  'Vendor': expense.vendor_name || '',
+  'Receipt Number': expense.receipt_number || '',
+  'Business Expense': expense.is_business_expense ? 'Yes' : 'No',
+  'Tax Deductible': expense.tax_deductible ? 'Yes' : 'No',
     'Notes': expense.notes || ''
   }));
 
@@ -119,12 +119,12 @@ export function generateFinancialReport(
 ): FinancialReport {
   // Filter data by date range
   const filteredInvoices = invoices.filter(inv => {
-    const date = new Date(inv.dateIssued);
+  const date = new Date(inv.issue_date ?? '');
     return date >= startDate && date <= endDate;
   });
 
   const filteredExpenses = expenses.filter(exp => {
-    const date = new Date(exp.dateIncurred);
+  const date = new Date(exp.date_incurred ?? '');
     return date >= startDate && date <= endDate;
   });
 
@@ -146,7 +146,7 @@ export function generateFinancialReport(
   filteredInvoices
     .filter(inv => inv.status === 'Paid')
     .forEach(inv => {
-      const client = clients.find(c => c.id === inv.clientId);
+  const client = clients.find(c => c.id === inv.client_id);
       if (client) {
         clientRevenueMap.set(
           client.name,
@@ -163,7 +163,7 @@ export function generateFinancialReport(
   // Calculate top expense categories
   const categoryExpenseMap = new Map<string, number>();
   filteredExpenses.forEach(exp => {
-    const category = exp.categoryName || 'Uncategorized';
+  const category = exp.category_name || 'Uncategorized';
     categoryExpenseMap.set(
       category,
       (categoryExpenseMap.get(category) || 0) + exp.amount
@@ -182,7 +182,7 @@ export function generateFinancialReport(
     paid: filteredInvoices.filter(inv => inv.status === 'Paid').length,
     pending: filteredInvoices.filter(inv => inv.status === 'Pending').length,
     overdue: filteredInvoices.filter(inv => {
-      const dueDate = new Date(inv.dueDate);
+  const dueDate = new Date(inv.due_date);
       return inv.status !== 'Paid' && dueDate < today;
     }).length
   };
@@ -267,7 +267,7 @@ export function bulkExport(
       let invoices = data.invoices;
       if (dateRange) {
         invoices = invoices.filter(inv => {
-          const date = new Date(inv.dateIssued);
+          const date = new Date(inv.issue_date ?? '');
           return date >= dateRange.start && date <= dateRange.end;
         });
       }
@@ -282,7 +282,7 @@ export function bulkExport(
       let expenses = data.expenses;
       if (dateRange) {
         expenses = expenses.filter(exp => {
-          const date = new Date(exp.dateIncurred);
+          const date = new Date(exp.date_incurred ?? '');
           return date >= dateRange.start && date <= dateRange.end;
         });
       }
@@ -295,7 +295,7 @@ export function bulkExport(
     if (includeInvoices && data.invoices) {
       exportData.invoices = dateRange 
         ? data.invoices.filter(inv => {
-            const date = new Date(inv.dateIssued);
+            const date = new Date(inv.issue_date ?? '');
             return date >= dateRange.start && date <= dateRange.end;
           })
         : data.invoices;
@@ -308,7 +308,7 @@ export function bulkExport(
     if (includeExpenses && data.expenses) {
       exportData.expenses = dateRange
         ? data.expenses.filter(exp => {
-            const date = new Date(exp.dateIncurred);
+            const date = new Date(exp.date_incurred ?? '');
             return date >= dateRange.start && date <= dateRange.end;
           })
         : data.expenses;

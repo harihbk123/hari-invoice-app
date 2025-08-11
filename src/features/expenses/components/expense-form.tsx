@@ -137,10 +137,11 @@ export function ExpenseForm({ expense, onSubmit, onCancel, isLoading }: ExpenseF
     
     // Clear error when user starts typing
     if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
+      setErrors(prev => {
+        const copy = { ...prev };
+        delete copy[field];
+        return copy;
+      });
     }
   };
 

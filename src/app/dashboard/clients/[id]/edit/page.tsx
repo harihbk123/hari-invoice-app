@@ -15,7 +15,7 @@ export default function EditClientPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const clientId = params.id as string;
+  const clientId = params?.id ? String(params.id) : '';
 
   const { data: client, isLoading, error } = useQuery({
     queryKey: ['client', clientId],

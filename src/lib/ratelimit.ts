@@ -3,15 +3,15 @@
 // In-memory rate limiting (for now, can be upgraded to Redis later)
 class SimpleRateLimit {
   private requests: Map<string, { count: number; resetTime: number }> = new Map()
-  public limit: number // Made public so it can be accessed
+  public maxLimit: number // Made public so it can be accessed
   private windowMs: number
 
   constructor(limit: number, windowMs: number) {
-    this.limit = limit
+  this.maxLimit = limit
     this.windowMs = windowMs
   }
 
-  async limit(identifier: string) {
+  async checkLimit(identifier: string) {
     const now = Date.now()
     const windowStart = now - this.windowMs
     
@@ -24,8 +24,8 @@ class SimpleRateLimit {
       this.requests.set(identifier, { count: 1, resetTime: now + this.windowMs })
       return {
         success: true,
-        limit: this.limit,
-        remaining: this.limit - 1,
+  limit: this.maxLimit,
+  remaining: this.maxLimit - 1,
         reset: now + this.windowMs
       }
     }
@@ -35,16 +35,16 @@ class SimpleRateLimit {
       this.requests.set(identifier, { count: 1, resetTime: now + this.windowMs })
       return {
         success: true,
-        limit: this.limit,
-        remaining: this.limit - 1,
+  limit: this.maxLimit,
+  remaining: this.maxLimit - 1,
         reset: now + this.windowMs
       }
     }
     
-    if (existing.count >= this.limit) {
+  if (existing.count >= this.maxLimit) {
       return {
         success: false,
-        limit: this.limit,
+  limit: this.maxLimit,
         remaining: 0,
         reset: existing.resetTime
       }
@@ -53,8 +53,8 @@ class SimpleRateLimit {
     existing.count++
     return {
       success: true,
-      limit: this.limit,
-      remaining: this.limit - existing.count,
+  limit: this.maxLimit,
+  remaining: this.maxLimit - existing.count,
       reset: existing.resetTime
     }
   }

@@ -14,7 +14,7 @@ export default function EditExpensePage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const expenseId = params.id as string;
+  const expenseId = params?.id ? String(params.id) : '';
 
   const { data: expense, isLoading, error } = useExpense(expenseId);
   const updateExpense = useUpdateExpense();

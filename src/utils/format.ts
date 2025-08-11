@@ -8,28 +8,23 @@ export function formatCurrency(amount: number, currency = 'USD'): string {
 }
 
 export function formatDate(date: string | Date, format: 'short' | 'long' | 'medium' = 'medium'): string {
+  if (!date) return '-';
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  
-  const options: Intl.DateTimeFormatOptions = {
-    short: {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    },
-    medium: {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    },
-    long: {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }
-  };
-
-  return new Intl.DateTimeFormat('en-US', options[format]).format(dateObj);
+  if (isNaN(dateObj.getTime())) return '-';
+  let options: Intl.DateTimeFormatOptions;
+  switch (format) {
+    case 'short':
+      options = { year: 'numeric', month: 'short', day: 'numeric' };
+      break;
+    case 'long':
+      options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      break;
+    case 'medium':
+    default:
+      options = { year: 'numeric', month: 'long', day: 'numeric' };
+      break;
+  }
+  return new Intl.DateTimeFormat('en-US', options).format(dateObj);
 }
 
 export function formatNumber(num: number): string {

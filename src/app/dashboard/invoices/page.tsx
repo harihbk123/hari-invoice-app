@@ -39,7 +39,7 @@ export default function InvoicesPage() {
 
   const filteredInvoices = invoices.filter((invoice) => {
     // Fix: Handle both nested and flat client data structures
-    const clientName = invoice.clients?.name || invoice.client_name || '';
+  const clientName = invoice.client?.name || invoice.client_name || '';
     const invoiceNumber = invoice.invoice_number || invoice.id || '';
     
     const matchesSearch =
@@ -150,7 +150,7 @@ export default function InvoicesPage() {
             ) : (
               filteredInvoices.map((invoice) => {
                 // Handle both nested and flat client data
-                const clientName = invoice.clients?.name || invoice.client_name || 'Unknown Client';
+                const clientName = invoice.client?.name || invoice.client_name || 'Unknown Client';
                 const invoiceNumber = invoice.invoice_number || invoice.id;
                 
                 return (

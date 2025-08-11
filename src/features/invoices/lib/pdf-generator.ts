@@ -31,7 +31,7 @@ export function downloadInvoicePDF(invoice: Invoice, client: Client, settings: S
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`Invoice: ${invoice.id}`, 400, 40);
-  doc.text(`Date: ${formatDate(invoice.date_issued)}`, 400, 55);
+  doc.text(`Date: ${formatDate(invoice.issue_date)}`, 400, 55);
   doc.text(`Due: ${formatDate(invoice.due_date)}`, 400, 70);
 
   // FROM section
@@ -102,7 +102,7 @@ export function downloadInvoicePDF(invoice: Invoice, client: Client, settings: S
 
   // Items table
   const tableY = Math.max(yPos, toYPos) + 30;
-  const tableData = invoice.items.map(item => {
+  const tableData = (invoice.items ?? []).map(item => {
     const rate = parseFloat(item.rate?.toString() || '0');
     const amount = parseFloat(item.amount?.toString() || '0');
     const qty = parseInt(item.quantity?.toString() || '1');

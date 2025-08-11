@@ -17,7 +17,7 @@ import { supabase } from '@/lib/supabase';
 export default function ClientDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const clientId = params.id as string;
+  const clientId = params?.id ? String(params.id) : '';
   const { toast } = useToast();
 
   const [client, setClient] = useState<any>(null);

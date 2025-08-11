@@ -17,35 +17,23 @@ export function formatCurrency(amount: number, currency = 'USD'): string {
 // Format date - Now handles undefined values
 export function formatDate(date: string | Date | undefined | null, format: 'short' | 'long' | 'medium' = 'medium'): string {
   if (!date) return '-';
-  
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
-    
-    // Check if date is valid
-    if (isNaN(dateObj.getTime())) {
-      return '-';
+    if (isNaN(dateObj.getTime())) return '-';
+    let options: Intl.DateTimeFormatOptions;
+    switch (format) {
+      case 'short':
+        options = { year: 'numeric', month: 'short', day: 'numeric' };
+        break;
+      case 'long':
+        options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        break;
+      case 'medium':
+      default:
+        options = { year: 'numeric', month: 'long', day: 'numeric' };
+        break;
     }
-    
-    const options: Intl.DateTimeFormatOptions = {
-      short: {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      },
-      medium: {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      },
-      long: {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      }
-    };
-
-    return new Intl.DateTimeFormat('en-US', options[format]).format(dateObj);
+    return new Intl.DateTimeFormat('en-US', options).format(dateObj);
   } catch (error) {
     console.error('Error formatting date:', error);
     return '-';

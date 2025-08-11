@@ -19,8 +19,24 @@ export function useClients() {
     queryKey: ['clients'],
     queryFn: async () => {
       const data = await getClients();
-      setClients(data);
-      return data;
+      const safeData = data.map(client => ({
+        id: client.id,
+        name: client.name || '',
+        email: client.email || '',
+        phone: client.phone || '',
+        address: client.address || '',
+        company: client.company || '',
+        contact_name: client.contact_name || '',
+        payment_terms: client.payment_terms || '',
+        status: client.status || 'active',
+        created_at: client.created_at || '',
+        updated_at: client.updated_at || '',
+        total_invoices: client.total_invoices ?? 0,
+        total_revenue: client.total_revenue ?? 0,
+        total_amount: client.total_amount ?? 0,
+      }));
+      setClients(safeData);
+      return safeData;
     },
   });
 
@@ -48,7 +64,19 @@ export function useCreateClient() {
   return useMutation({
     mutationFn: createClient,
     onSuccess: (data) => {
-      addClient(data);
+      addClient({
+        ...data,
+        email: data.email || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        payment_terms: data.payment_terms || '',
+        contact_name: data.contact_name || '',
+        company: data.company || '',
+        total_invoices: data.total_invoices ?? 0,
+        total_amount: data.total_amount ?? 0,
+        created_at: data.created_at || '',
+        updated_at: data.updated_at || '',
+      });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       toast({
         title: 'Success',

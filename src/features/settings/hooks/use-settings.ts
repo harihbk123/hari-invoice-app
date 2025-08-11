@@ -11,7 +11,7 @@ export function useSettings() {
     queryKey: ['settings'],
     queryFn: async () => {
       const data = await getSettings();
-      setSettings(data);
+  if (data) setSettings(data);
       return data;
     },
   });
@@ -32,7 +32,7 @@ export function useUpdateSettings() {
   return useMutation({
     mutationFn: updateSettings,
     onSuccess: (data) => {
-      setSettings(data);
+  if (data) setSettings(data);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       toast({
         title: 'Success',

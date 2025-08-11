@@ -23,7 +23,7 @@ export default function InvoiceDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const invoiceId = params.id as string;
+  const invoiceId = params?.id ? String(params.id) : '';
   
   // Fix: useInvoice returns { data, isLoading, error } from React Query
   const { data: invoice, isLoading, error } = useInvoice(invoiceId);

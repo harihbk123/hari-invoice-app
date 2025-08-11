@@ -42,7 +42,7 @@ export function ClientCard({ client, onClick }: ClientCardProps) {
               )}
             </div>
           </div>
-          {client.total_invoices > 0 && (
+          {(client.total_invoices ?? 0) > 0 && (
             <Badge variant="secondary">Active</Badge>
           )}
         </div>
@@ -68,12 +68,12 @@ export function ClientCard({ client, onClick }: ClientCardProps) {
         <div className="pt-3 border-t flex justify-between text-sm">
           <div className="flex items-center gap-1">
             <FileText className="h-3 w-3 text-muted-foreground" />
-            <span className="font-medium">{client.total_invoices}</span>
+            <span className="font-medium">{client.total_invoices ?? 0}</span>
             <span className="text-muted-foreground">invoices</span>
           </div>
           <div className="flex items-center gap-1">
             <DollarSign className="h-3 w-3 text-muted-foreground" />
-            <span className="font-medium">{formatCurrency(client.total_amount)}</span>
+            <span className="font-medium">{formatCurrency(client.total_amount ?? 0)}</span>
           </div>
         </div>
       </CardContent>
