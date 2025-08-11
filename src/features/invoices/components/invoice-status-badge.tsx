@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 interface InvoiceStatusBadgeProps {
   status: string;
 }
-
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'draft' | 'pending' | 'paid' | 'overdue' | 'cancelled';
 
 export function InvoiceStatusBadge({ status }: InvoiceStatusBadgeProps) {
