@@ -1,91 +1,52 @@
-// src/components/ui/button.tsx
-import React from 'react';
-import { cn } from '@/lib/utils';
+// src/components/ui/index.ts
+// Barrel export file for UI components
+// This file exports all UI components from their respective files
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
-  asChild?: boolean;
-}
+// Core UI Components
+export * from './button'
+export * from './card'
+export * from './input'
+export * from './label'
+export * from './textarea'
+export * from './checkbox'
+export * from './switch'
+export * from './select'
+export * from './separator'
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'default', size = 'default', asChild = false, ...props }, ref) => {
-    const Comp = asChild ? 'span' : 'button';
-    return (
-      <Comp
-        className={cn(
-          'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background',
-          {
-            'bg-primary text-primary-foreground hover:bg-primary/90': variant === 'default',
-            'bg-destructive text-destructive-foreground hover:bg-destructive/90': variant === 'destructive',
-            'border border-input hover:bg-accent hover:text-accent-foreground': variant === 'outline',
-            'bg-secondary text-secondary-foreground hover:bg-secondary/80': variant === 'secondary',
-            'hover:bg-accent hover:text-accent-foreground': variant === 'ghost',
-            'underline-offset-4 hover:underline text-primary': variant === 'link',
-          },
-          {
-            'h-10 py-2 px-4': size === 'default',
-            'h-9 px-3 rounded-md': size === 'sm',
-            'h-11 px-8 rounded-md': size === 'lg',
-            'h-10 w-10': size === 'icon',
-          },
-          className
-        )}
-        ref={ref}
-        {...props}
-      />
-    );
-  }
-);
+// Dialog and Modal Components
+export * from './dialog'
+export * from './alert-dialog'
+export * from './sheet'
 
-// src/components/ui/card.tsx
-export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn('rounded-lg border bg-card text-card-foreground shadow-sm', className)}
-      {...props}
-    />
-  )
-);
+// Navigation Components
+export * from './dropdown-menu'
+export * from './navigation-menu'
+export * from './menubar'
+export * from './tabs'
 
-export const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />
-  )
-);
+// Display Components
+export * from './accordion'
+export * from './alert'
+export * from './avatar'
+export * from './badge'
+export * from './progress'
+export * from './skeleton'
+export * from './table'
+export * from './tooltip'
+export * from './hover-card'
+export * from './popover'
 
-export const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn('text-2xl font-semibold leading-none tracking-tight', className)} {...props} />
-  )
-);
+// Form Components
+export * from './form'
+export * from './slider'
+export * from './toggle'
+export * from './toggle-group'
+export * from './scroll-area'
 
-export const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />
-  )
-);
+// Toast Components
+export * from './toast'
+export * from './toaster'
+// Note: use-toast is in src/hooks/use-toast.tsx
 
-export const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
-  )
-);
-
-// src/components/ui/input.tsx
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, type, ...props }, ref) => {
-    return (
-      <input
-        type={type}
-        className={cn(
-          'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-          className
-        )}
-        ref={ref}
-        {...props}
-      />
-    );
-  }
-);
+// Loading Components
+export * from './loading'
