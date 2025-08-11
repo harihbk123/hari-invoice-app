@@ -1,169 +1,235 @@
-// src/lib/errorHandler.ts
-import { toast } from 'react-hot-toast'
+// src/lib/error-handler.ts
+import { useToast } from '@/hooks/use-toast';
 
 export interface AppError extends Error {
-  code?: string
-  statusCode?: number
-  context?: Record<string, any>
+  code?: string;
+  details?: any;
+  statusCode?: number;
 }
 
-export class AppError extends Error {
-  constructor(
-    message: string,
-    public code?: string,
-    public statusCode?: number,
-    public context?: Record<string, any>
-  ) {
-    super(message)
-    this.name = 'AppError'
-  }
-}
+export class InvoiceError extends Error implements AppError {
+  code: string;
+  details?: any;
+  statusCode?: number;
 
-export class ValidationError extends AppError {
-  constructor(message: string, context?: Record<string, any>) {
-    super(message, 'VALIDATION_ERROR', 400, context)
-    this.name = 'ValidationError'
+  constructor(message: string, code: string = 'INVOICE_ERROR', statusCode: number = 500, details?: any) {
+    super(message);
+    this.name = 'InvoiceError';
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
   }
 }
 
-export class NetworkError extends AppError {
-  constructor(message: string, statusCode?: number, context?: Record<string, any>) {
-    super(message, 'NETWORK_ERROR', statusCode || 500, context)
-    this.name = 'NetworkError'
+export class ValidationError extends InvoiceError {
+  constructor(message: string, details?: any) {
+    super(message, 'VALIDATION_ERROR', 400, details);
+    this.name = 'ValidationError';
   }
 }
 
-export class AuthenticationError extends AppError {
-  constructor(message: string = 'Authentication required', context?: Record<string, any>) {
-    super(message, 'AUTH_ERROR', 401, context)
-    this.name = 'AuthenticationError'
+export class NetworkError extends InvoiceError {
+  constructor(message: string = 'Network error occurred', details?: any) {
+    super(message, 'NETWORK_ERROR', 0, details);
+    this.name = 'NetworkError';
   }
 }
 
-export class AuthorizationError extends AppError {
-  constructor(message: string = 'Access denied', context?: Record<string, any>) {
-    super(message, 'AUTHORIZATION_ERROR', 403, context)
-    this.name = 'AuthorizationError'
+export class AuthError extends InvoiceError {
+  constructor(message: string = 'Authentication failed', details?: any) {
+    super(message, 'AUTH_ERROR', 401, details);
+    this.name = 'AuthError';
   }
 }
 
-// Error logging
-export const logError = (error: Error, context?: Record<string, any>) => {
-  const errorInfo = {
-    message: error.message,
-    name: error.name,
-    stack: error.stack,
-    timestamp: new Date().toISOString(),
-    url: typeof window !== 'undefined' ? window.location.href : 'server',
-    userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server',
-    context,
+export class NotFoundError extends InvoiceError {
+  constructor(resource: string = 'Resource') {
+    super(`${resource} not found`, 'NOT_FOUND', 404);
+    this.name = 'NotFoundError';
+  }
+}
+
+// Error parsing utility
+export function parseSupabaseError(error: any): AppError {
+  if (!error) return new InvoiceError('Unknown error occurred');
+
+  // Handle Supabase specific errors
+  if (error.code) {
+    switch (error.code) {
+      case 'PGRST116':
+        return new NotFoundError();
+      case '23505':
+        return new ValidationError('Duplicate entry found', error);
+      case '23503':
+        return new ValidationError('Referenced record not found', error);
+      case '42501':
+        return new AuthError('Insufficient permissions');
+      default:
+        return new InvoiceError(error.message || 'Database error', error.code, 500, error);
+    }
   }
 
-  // Log to console in development
-  if (process.env.NODE_ENV === 'development') {
-    console.error('Error logged:', errorInfo)
+  // Handle network errors
+  if (error.name === 'TypeError' && error.message.includes('fetch')) {
+    return new NetworkError('Failed to connect to server');
   }
 
-  // Send to external logging service in production
-  if (process.env.NODE_ENV === 'production') {
-    // Replace with your logging service (Sentry, LogRocket, etc.)
-    // Example: Sentry.captureException(error, { extra: context })
-    
-    // For now, just log to console in production too
-    console.error('Production error:', errorInfo)
+  // Handle general errors
+  if (error instanceof Error) {
+    return new InvoiceError(error.message, 'GENERAL_ERROR');
   }
 
-  return errorInfo
+  return new InvoiceError('Unknown error occurred');
+}
+
+// Error message formatter
+export function getErrorMessage(error: any): string {
+  if (error instanceof AppError) {
+    return error.message;
+  }
+
+  if (error?.message) {
+    return error.message;
+  }
+
+  return 'An unexpected error occurred';
 }
 
 // User-friendly error messages
-export const getErrorMessage = (error: unknown): string => {
-  if (error instanceof AppError) {
-    return error.message
-  }
+export function getUserFriendlyMessage(error: any): string {
+  const appError = error instanceof AppError ? error : parseSupabaseError(error);
 
-  if (error instanceof Error) {
-    // Handle specific error types
-    if (error.message.includes('fetch')) {
-      return 'Network error. Please check your connection and try again.'
-    }
-    
-    if (error.message.includes('unauthorized') || error.message.includes('401')) {
-      return 'Your session has expired. Please sign in again.'
-    }
-    
-    if (error.message.includes('forbidden') || error.message.includes('403')) {
-      return 'You do not have permission to perform this action.'
-    }
-    
-    if (error.message.includes('not found') || error.message.includes('404')) {
-      return 'The requested resource was not found.'
-    }
-
-    return error.message
-  }
-
-  if (typeof error === 'string') {
-    return error
-  }
-
-  return 'An unexpected error occurred. Please try again.'
-}
-
-// Toast error notifications
-export const showErrorToast = (error: unknown, customMessage?: string) => {
-  const message = customMessage || getErrorMessage(error)
-  
-  toast.error(message, {
-    duration: 5000,
-    position: 'top-right',
-    style: {
-      background: '#FEF2F2',
-      color: '#DC2626',
-      border: '1px solid #FECACA',
-    },
-  })
-
-  // Log the error
-  if (error instanceof Error) {
-    logError(error)
+  switch (appError.code) {
+    case 'NOT_FOUND':
+      return 'The requested item could not be found.';
+    case 'VALIDATION_ERROR':
+      return 'Please check your input and try again.';
+    case 'AUTH_ERROR':
+      return 'You need to be logged in to perform this action.';
+    case 'NETWORK_ERROR':
+      return 'Please check your internet connection and try again.';
+    case 'INVOICE_ERROR':
+      return appError.message || 'An error occurred while processing your request.';
+    default:
+      return 'Something went wrong. Please try again.';
   }
 }
 
-// Success toast helper
-export const showSuccessToast = (message: string) => {
-  toast.success(message, {
-    duration: 3000,
-    position: 'top-right',
-    style: {
-      background: '#F0FDF4',
-      color: '#16A34A',
-      border: '1px solid #BBF7D0',
-    },
-  })
+// React hook for error handling
+export function useErrorHandler() {
+  const { toast } = useToast();
+
+  const handleError = (error: any, customMessage?: string) => {
+    console.error('Error caught:', error);
+    
+    const message = customMessage || getUserFriendlyMessage(error);
+    
+    toast({
+      title: 'Error',
+      description: message,
+      variant: 'destructive',
+    });
+  };
+
+  const handleSuccess = (message: string, description?: string) => {
+    toast({
+      title: 'Success',
+      description: description || message,
+    });
+  };
+
+  return { handleError, handleSuccess };
 }
 
-// Async error handler wrapper
-export const handleAsync = <T extends any[], R>(
-  fn: (...args: T) => Promise<R>
-) => {
-  return async (...args: T): Promise<R | void> => {
+// Retry utility for failed operations
+export async function retryOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await fn(...args)
+      return await operation();
     } catch (error) {
-      logError(error as Error, { function: fn.name, args })
-      showErrorToast(error)
-      throw error // Re-throw to allow component-specific handling
+      lastError = error;
+      
+      if (attempt === maxRetries) {
+        throw parseSupabaseError(error);
+      }
+
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, delay * attempt));
     }
   }
+
+  throw parseSupabaseError(lastError);
 }
 
-// React error handler hook
-export const useErrorHandler = () => {
-  const handleError = (error: unknown, context?: Record<string, any>) => {
-    logError(error as Error, context)
-    showErrorToast(error)
+// Validation utilities
+export function validateInvoiceData(data: any): ValidationError | null {
+  const errors: string[] = [];
+
+  if (!data.client_id && !data.client_name) {
+    errors.push('Client is required');
   }
 
-  return { handleError }
+  if (!data.amount || data.amount <= 0) {
+    errors.push('Amount must be greater than 0');
+  }
+
+  if (!data.issue_date) {
+    errors.push('Issue date is required');
+  }
+
+  if (!data.due_date) {
+    errors.push('Due date is required');
+  }
+
+  if (data.due_date && data.issue_date && new Date(data.due_date) < new Date(data.issue_date)) {
+    errors.push('Due date must be after issue date');
+  }
+
+  if (errors.length > 0) {
+    return new ValidationError(errors.join(', '));
+  }
+
+  return null;
+}
+
+export function validateClientData(data: any): ValidationError | null {
+  const errors: string[] = [];
+
+  if (!data.name || data.name.trim().length === 0) {
+    errors.push('Client name is required');
+  }
+
+  if (data.email && !isValidEmail(data.email)) {
+    errors.push('Please enter a valid email address');
+  }
+
+  if (errors.length > 0) {
+    return new ValidationError(errors.join(', '));
+  }
+
+  return null;
+}
+
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Async error boundary
+export function withErrorHandling<T extends any[], R>(
+  fn: (...args: T) => Promise<R>
+) {
+  return async (...args: T): Promise<R> => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      throw parseSupabaseError(error);
+    }
+  };
 }
