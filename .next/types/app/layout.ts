@@ -1,4 +1,4 @@
-// File: C:\Users\TaskDrive\Documents\GitHub\hari-invoice-master-main\hari-invoice-master-main\src\app\layout.tsx
+// File: /workspaces/hari-invoice-app/src/app/layout.tsx
 import * as entry from '../../../src/app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

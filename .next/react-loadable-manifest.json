@@ -1,1 +1,37 @@
-{}
+{
+  "../node_modules/@supabase/auth-js/dist/module/lib/helpers.js -> @supabase/node-fetch": {
+    "id": 80485,
+    "files": []
+  },
+  "../node_modules/@supabase/functions-js/dist/module/helper.js -> @supabase/node-fetch": {
+    "id": 80485,
+    "files": []
+  },
+  "../node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js -> @supabase/node-fetch": {
+    "id": 80485,
+    "files": []
+  },
+  "../node_modules/@supabase/storage-js/dist/module/lib/helpers.js -> @supabase/node-fetch": {
+    "id": 80485,
+    "files": []
+  },
+  "../node_modules/jspdf/dist/jspdf.es.min.js -> canvg": {
+    "id": 12396,
+    "files": [
+      "static/chunks/bc98253f.5b0f4fe717c5b99c.js",
+      "static/chunks/3969.3883d128992e5740.js"
+    ]
+  },
+  "../node_modules/jspdf/dist/jspdf.es.min.js -> dompurify": {
+    "id": 18848,
+    "files": [
+      "static/chunks/8848.8d85baa2792181e8.js"
+    ]
+  },
+  "../node_modules/jspdf/dist/jspdf.es.min.js -> html2canvas": {
+    "id": 6807,
+    "files": [
+      "static/chunks/ad2866b8.df424f64adfa702a.js"
+    ]
+  }
+}

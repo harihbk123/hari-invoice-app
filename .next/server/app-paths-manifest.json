@@ -1,4 +1,23 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/auth/callback/route": "app/auth/callback/route.js",
+  "/auth/login/page": "app/auth/login/page.js",
+  "/auth/signup/page": "app/auth/signup/page.js",
+  "/page": "app/page.js",
+  "/dashboard/analytics/page": "app/dashboard/analytics/page.js",
+  "/dashboard/clients/[id]/page": "app/dashboard/clients/[id]/page.js",
+  "/dashboard/clients/[id]/edit/page": "app/dashboard/clients/[id]/edit/page.js",
+  "/dashboard/clients/create/page": "app/dashboard/clients/create/page.js",
+  "/dashboard/clients/new/page": "app/dashboard/clients/new/page.js",
+  "/dashboard/clients/page": "app/dashboard/clients/page.js",
+  "/dashboard/expenses/[id]/edit/page": "app/dashboard/expenses/[id]/edit/page.js",
+  "/dashboard/expenses/create/page": "app/dashboard/expenses/create/page.js",
+  "/dashboard/expenses/page": "app/dashboard/expenses/page.js",
+  "/dashboard/invoices/[id]/page": "app/dashboard/invoices/[id]/page.js",
+  "/dashboard/invoices/new/page": "app/dashboard/invoices/new/page.js",
+  "/dashboard/invoices/page": "app/dashboard/invoices/page.js",
+  "/dashboard/invoices/create/page": "app/dashboard/invoices/create/page.js",
+  "/dashboard/invoices/[id]/edit/page": "app/dashboard/invoices/[id]/edit/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js"
 }
