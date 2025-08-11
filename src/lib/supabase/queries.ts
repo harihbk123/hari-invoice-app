@@ -503,6 +503,9 @@ export interface AnalyticsData {
   monthlyExpenses: Array<{ month: string; expenses: number }>;
   recentInvoices: Invoice[];
   recentExpenses: Expense[];
+  expensesByCategory: Array<{ category: string; amount: number }>;
+  clientRevenue: Array<{ client: string; revenue: number }>;
+  invoiceStatusDistribution: Array<{ name: string; count: number }>;
 }
 
 export async function getAnalytics(): Promise<AnalyticsData> {
@@ -533,6 +536,30 @@ export async function getAnalytics(): Promise<AnalyticsData> {
     const monthlyRevenue = getMonthlyData(invoices, 'amount', 'Paid');
     const monthlyExpenses = getMonthlyData(expenses, 'amount');
 
+    // Expenses by Category
+    const expensesByCategoryMap: Record<string, number> = {};
+    for (const exp of expenses) {
+      const cat = exp.category || 'Uncategorized';
+      expensesByCategoryMap[cat] = (expensesByCategoryMap[cat] || 0) + (exp.amount || 0);
+    }
+    const expensesByCategory = Object.entries(expensesByCategoryMap).map(([category, amount]) => ({ category, amount }));
+
+    // Client Revenue
+    const clientRevenueMap: Record<string, number> = {};
+    for (const inv of invoices) {
+      const client = inv.client_name || inv.client_id || 'Unknown';
+      clientRevenueMap[client] = (clientRevenueMap[client] || 0) + (inv.amount || 0);
+    }
+    const clientRevenue = Object.entries(clientRevenueMap).map(([client, revenue]) => ({ client, revenue }));
+
+    // Invoice Status Distribution
+    const statusMap: Record<string, number> = {};
+    for (const inv of invoices) {
+      const status = inv.status || 'Unknown';
+      statusMap[status] = (statusMap[status] || 0) + 1;
+    }
+    const invoiceStatusDistribution = Object.entries(statusMap).map(([name, count]) => ({ name, count }));
+
     return {
       totalRevenue,
       totalExpenses,
@@ -548,6 +575,9 @@ export async function getAnalytics(): Promise<AnalyticsData> {
       })),
       recentInvoices: invoices.slice(0, 5),
       recentExpenses: expenses.slice(0, 5),
+      expensesByCategory,
+      clientRevenue,
+      invoiceStatusDistribution,
     };
   } catch (error) {
     console.error('Analytics query error:', error);
