@@ -4,250 +4,493 @@ import type { Client, Invoice, Expense, Settings } from '@/types';
 
 // Client Queries
 export async function getClients(): Promise<Client[]> {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  if (error) throw error;
-  return data || [];
+    if (error) {
+      console.error('Error fetching clients:', error);
+      throw new Error(`Failed to fetch clients: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Client query error:', error);
+    throw error;
+  }
 }
 
 export async function getClient(id: string): Promise<Client> {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('id', id)
-    .single();
+  try {
+    if (!id) throw new Error('Client ID is required');
 
-  if (error) throw error;
-  return data;
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching client:', error);
+      throw new Error(`Failed to fetch client: ${error.message}`);
+    }
+    
+    if (!data) {
+      throw new Error('Client not found');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Get client error:', error);
+    throw error;
+  }
 }
 
 export async function createClient(client: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<Client> {
-  const { data, error } = await supabase
-    .from('clients')
-    .insert([client])
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .insert([{
+        ...client,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }])
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('Error creating client:', error);
+      throw new Error(`Failed to create client: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Create client error:', error);
+    throw error;
+  }
 }
 
 export async function updateClient(id: string, updates: Partial<Client>): Promise<Client> {
-  const { data, error } = await supabase
-    .from('clients')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+  try {
+    if (!id) throw new Error('Client ID is required');
 
-  if (error) throw error;
-  return data;
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating client:', error);
+      throw new Error(`Failed to update client: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Update client error:', error);
+    throw error;
+  }
 }
 
 export async function deleteClient(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('clients')
-    .delete()
-    .eq('id', id);
+  try {
+    if (!id) throw new Error('Client ID is required');
 
-  if (error) throw error;
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting client:', error);
+      throw new Error(`Failed to delete client: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('Delete client error:', error);
+    throw error;
+  }
 }
 
 // Invoice Queries
 export async function getInvoices(): Promise<Invoice[]> {
-  const { data, error } = await supabase
-    .from('invoices')
-    .select(`
-      *,
-      clients (
-        id,
-        name,
-        email,
-        company
-      )
-    `)
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select(`
+        *,
+        clients (
+          id,
+          name,
+          email,
+          company,
+          phone,
+          address
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-  if (error) throw error;
-  return data || [];
+    if (error) {
+      console.error('Error fetching invoices:', error);
+      throw new Error(`Failed to fetch invoices: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Invoice query error:', error);
+    throw error;
+  }
 }
 
 export async function getInvoice(id: string): Promise<Invoice> {
-  const { data, error } = await supabase
-    .from('invoices')
-    .select(`
-      *,
-      clients (
-        id,
-        name,
-        email,
-        company
-      )
-    `)
-    .eq('id', id)
-    .single();
+  try {
+    if (!id) throw new Error('Invoice ID is required');
 
-  if (error) throw error;
-  return data;
+    const { data, error } = await supabase
+      .from('invoices')
+      .select(`
+        *,
+        clients (
+          id,
+          name,
+          email,
+          company,
+          phone,
+          address
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching invoice:', error);
+      throw new Error(`Failed to fetch invoice: ${error.message}`);
+    }
+    
+    if (!data) {
+      throw new Error('Invoice not found');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Get invoice error:', error);
+    throw error;
+  }
 }
 
 export async function getClientInvoices(clientId: string): Promise<Invoice[]> {
-  const { data, error } = await supabase
-    .from('invoices')
-    .select('*')
-    .eq('client_id', clientId)
-    .order('created_at', { ascending: false });
+  try {
+    if (!clientId) throw new Error('Client ID is required');
 
-  if (error) throw error;
-  return data || [];
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching client invoices:', error);
+      throw new Error(`Failed to fetch client invoices: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Client invoices query error:', error);
+    throw error;
+  }
 }
 
 export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' | 'updated_at'>): Promise<Invoice> {
-  const { data, error } = await supabase
-    .from('invoices')
-    .insert([invoice])
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .insert([{
+        ...invoice,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }])
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('Error creating invoice:', error);
+      throw new Error(`Failed to create invoice: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Create invoice error:', error);
+    throw error;
+  }
 }
 
 export async function updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice> {
-  const { data, error } = await supabase
-    .from('invoices')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+  try {
+    if (!id) throw new Error('Invoice ID is required');
 
-  if (error) throw error;
-  return data;
+    const { data, error } = await supabase
+      .from('invoices')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating invoice:', error);
+      throw new Error(`Failed to update invoice: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Update invoice error:', error);
+    throw error;
+  }
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('invoices')
-    .delete()
-    .eq('id', id);
+  try {
+    if (!id) throw new Error('Invoice ID is required');
 
-  if (error) throw error;
+    const { error } = await supabase
+      .from('invoices')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting invoice:', error);
+      throw new Error(`Failed to delete invoice: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('Delete invoice error:', error);
+    throw error;
+  }
 }
 
 export async function changeInvoiceStatus(id: string, status: Invoice['status']): Promise<Invoice> {
-  return updateInvoice(id, { status });
+  try {
+    if (!id) throw new Error('Invoice ID is required');
+    if (!status) throw new Error('Status is required');
+
+    return updateInvoice(id, { status });
+  } catch (error) {
+    console.error('Change invoice status error:', error);
+    throw error;
+  }
 }
 
 export async function getNextInvoiceNumber(): Promise<string> {
-  const { data, error } = await supabase
-    .from('invoices')
-    .select('invoice_number')
-    .order('created_at', { ascending: false })
-    .limit(1);
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-  if (error) throw error;
+    if (error) {
+      console.error('Error getting next invoice number:', error);
+      throw new Error(`Failed to get next invoice number: ${error.message}`);
+    }
 
-  if (!data || data.length === 0) {
+    if (!data || data.length === 0) {
+      return 'INV-001';
+    }
+
+    const lastInvoiceNumber = data[0].invoice_number;
+    if (!lastInvoiceNumber) {
+      return 'INV-001';
+    }
+
+    const match = lastInvoiceNumber.match(/(\d+)$/);
+    
+    if (match) {
+      const nextNumber = parseInt(match[1]) + 1;
+      return `INV-${nextNumber.toString().padStart(3, '0')}`;
+    }
+
     return 'INV-001';
+  } catch (error) {
+    console.error('Get next invoice number error:', error);
+    throw error;
   }
-
-  const lastInvoiceNumber = data[0].invoice_number;
-  const match = lastInvoiceNumber.match(/(\d+)$/);
-  
-  if (match) {
-    const nextNumber = parseInt(match[1]) + 1;
-    return `INV-${nextNumber.toString().padStart(3, '0')}`;
-  }
-
-  return 'INV-001';
 }
 
 // Expense Queries
 export async function getExpenses(): Promise<Expense[]> {
-  const { data, error } = await supabase
-    .from('expenses')
-    .select('*')
-    .order('date', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('date', { ascending: false });
 
-  if (error) throw error;
-  return data || [];
+    if (error) {
+      console.error('Error fetching expenses:', error);
+      throw new Error(`Failed to fetch expenses: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Expense query error:', error);
+    throw error;
+  }
 }
 
 export async function getExpense(id: string): Promise<Expense> {
-  const { data, error } = await supabase
-    .from('expenses')
-    .select('*')
-    .eq('id', id)
-    .single();
+  try {
+    if (!id) throw new Error('Expense ID is required');
 
-  if (error) throw error;
-  return data;
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching expense:', error);
+      throw new Error(`Failed to fetch expense: ${error.message}`);
+    }
+    
+    if (!data) {
+      throw new Error('Expense not found');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Get expense error:', error);
+    throw error;
+  }
 }
 
 export async function createExpense(expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>): Promise<Expense> {
-  const { data, error } = await supabase
-    .from('expenses')
-    .insert([expense])
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert([{
+        ...expense,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }])
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('Error creating expense:', error);
+      throw new Error(`Failed to create expense: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Create expense error:', error);
+    throw error;
+  }
 }
 
 export async function updateExpense(id: string, updates: Partial<Expense>): Promise<Expense> {
-  const { data, error } = await supabase
-    .from('expenses')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+  try {
+    if (!id) throw new Error('Expense ID is required');
 
-  if (error) throw error;
-  return data;
+    const { data, error } = await supabase
+      .from('expenses')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating expense:', error);
+      throw new Error(`Failed to update expense: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Update expense error:', error);
+    throw error;
+  }
 }
 
 export async function deleteExpense(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('expenses')
-    .delete()
-    .eq('id', id);
+  try {
+    if (!id) throw new Error('Expense ID is required');
 
-  if (error) throw error;
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting expense:', error);
+      throw new Error(`Failed to delete expense: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('Delete expense error:', error);
+    throw error;
+  }
 }
 
 // Settings Queries
 export async function getSettings(): Promise<Settings | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) return null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.warn('No authenticated user found');
+      return null;
+    }
 
-  const { data, error } = await supabase
-    .from('settings')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
 
-  if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
-  return data || null;
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      console.error('Error fetching settings:', error);
+      throw new Error(`Failed to fetch settings: ${error.message}`);
+    }
+    
+    return data || null;
+  } catch (error) {
+    console.error('Get settings error:', error);
+    throw error;
+  }
 }
 
 export async function updateSettings(settings: Partial<Settings>): Promise<Settings> {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) throw new Error('User not authenticated');
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('User not authenticated');
 
-  const { data, error } = await supabase
-    .from('settings')
-    .upsert({ ...settings, user_id: user.id })
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from('settings')
+      .upsert({ 
+        ...settings, 
+        user_id: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('Error updating settings:', error);
+      throw new Error(`Failed to update settings: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Update settings error:', error);
+    throw error;
+  }
 }
 
 // Analytics Queries
@@ -257,50 +500,38 @@ export interface AnalyticsData {
   totalClients: number;
   totalInvoices: number;
   monthlyRevenue: Array<{ month: string; revenue: number }>;
-  expensesByCategory: Array<{ category: string; amount: number }>;
-  clientRevenue: Array<{ client: string; revenue: number }>;
-  invoiceStatusDistribution: Array<{ status: string; count: number }>;
+  monthlyExpenses: Array<{ month: string; expenses: number }>;
+  recentInvoices: Invoice[];
+  recentExpenses: Expense[];
 }
 
-export async function getAnalyticsData(): Promise<AnalyticsData> {
+export async function getAnalytics(): Promise<AnalyticsData> {
   try {
-    // Fetch all data in parallel
-    const [invoicesResult, clientsResult, expensesResult] = await Promise.all([
-      supabase.from('invoices').select(`
-        *,
-        clients (
-          id,
-          name,
-          email,
-          company
-        )
-      `),
-      supabase.from('clients').select('*'),
-      supabase.from('expenses').select('*')
+    // Get all data in parallel
+    const [invoicesResult, expensesResult, clientsResult] = await Promise.all([
+      supabase.from('invoices').select('*'),
+      supabase.from('expenses').select('*'),
+      supabase.from('clients').select('*')
     ]);
 
-    const invoices = invoicesResult.data || [];
-    const clients = clientsResult.data || [];
-    const expenses = expensesResult.data || [];
+    if (invoicesResult.error) throw invoicesResult.error;
+    if (expensesResult.error) throw expensesResult.error;
+    if (clientsResult.error) throw clientsResult.error;
 
-    // Calculate basic metrics
+    const invoices = invoicesResult.data || [];
+    const expenses = expensesResult.data || [];
+    const clients = clientsResult.data || [];
+
+    // Calculate totals
     const totalRevenue = invoices
       .filter(inv => inv.status === 'Paid')
-      .reduce((sum, inv) => sum + inv.amount, 0);
-    
-    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      .reduce((sum, inv) => sum + (inv.amount || 0), 0);
 
-    // Monthly revenue calculation
-    const monthlyRevenue = calculateMonthlyRevenue(invoices);
-    
-    // Expenses by category
-    const expensesByCategory = calculateExpensesByCategory(expenses);
-    
-    // Client revenue
-    const clientRevenue = calculateClientRevenue(invoices);
-    
-    // Invoice status distribution
-    const invoiceStatusDistribution = calculateInvoiceStatusDistribution(invoices);
+    const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+
+    // Get monthly data for the last 12 months
+    const monthlyRevenue = getMonthlyData(invoices, 'amount', 'Paid');
+    const monthlyExpenses = getMonthlyData(expenses, 'amount');
 
     return {
       totalRevenue,
@@ -308,76 +539,40 @@ export async function getAnalyticsData(): Promise<AnalyticsData> {
       totalClients: clients.length,
       totalInvoices: invoices.length,
       monthlyRevenue,
-      expensesByCategory,
-      clientRevenue,
-      invoiceStatusDistribution
+      monthlyExpenses,
+      recentInvoices: invoices.slice(0, 5),
+      recentExpenses: expenses.slice(0, 5),
     };
   } catch (error) {
-    console.error('Error fetching analytics data:', error);
+    console.error('Analytics query error:', error);
     throw error;
   }
 }
 
-// Helper functions for analytics calculations
-function calculateMonthlyRevenue(invoices: any[]): Array<{ month: string; revenue: number }> {
-  const monthlyData = new Map<string, number>();
+// Helper function for monthly data calculation
+function getMonthlyData(data: any[], amountField: string, statusFilter?: string) {
+  const now = new Date();
+  const months = [];
   
-  invoices
-    .filter(inv => inv.status === 'Paid')
-    .forEach(invoice => {
-      const date = new Date(invoice.created_at);
-      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-      const monthName = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-      
-      monthlyData.set(monthName, (monthlyData.get(monthName) || 0) + invoice.amount);
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    const monthData = data.filter(item => {
+      const itemDate = new Date(item.created_at || item.date);
+      const itemMonthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`;
+      const matchesMonth = itemMonthKey === monthKey;
+      const matchesStatus = !statusFilter || item.status === statusFilter;
+      return matchesMonth && matchesStatus;
     });
-  
-  return Array.from(monthlyData.entries()).map(([month, revenue]) => ({
-    month,
-    revenue
-  }));
-}
 
-function calculateExpensesByCategory(expenses: any[]): Array<{ category: string; amount: number }> {
-  const categoryData = new Map<string, number>();
-  
-  expenses.forEach(expense => {
-    const category = expense.category || 'Uncategorized';
-    categoryData.set(category, (categoryData.get(category) || 0) + expense.amount);
-  });
-  
-  return Array.from(categoryData.entries()).map(([category, amount]) => ({
-    category,
-    amount
-  }));
-}
-
-function calculateClientRevenue(invoices: any[]): Array<{ client: string; revenue: number }> {
-  const clientData = new Map<string, number>();
-  
-  invoices
-    .filter(inv => inv.status === 'Paid')
-    .forEach(invoice => {
-      const clientName = invoice.clients?.name || 'Unknown Client';
-      clientData.set(clientName, (clientData.get(clientName) || 0) + invoice.amount);
+    const total = monthData.reduce((sum, item) => sum + (item[amountField] || 0), 0);
+    
+    months.push({
+      month: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      [amountField === 'amount' && statusFilter ? 'revenue' : 'expenses']: total
     });
+  }
   
-  return Array.from(clientData.entries())
-    .map(([client, revenue]) => ({ client, revenue }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 10); // Top 10 clients
-}
-
-function calculateInvoiceStatusDistribution(invoices: any[]): Array<{ status: string; count: number }> {
-  const statusData = new Map<string, number>();
-  
-  invoices.forEach(invoice => {
-    const status = invoice.status || 'Unknown';
-    statusData.set(status, (statusData.get(status) || 0) + 1);
-  });
-  
-  return Array.from(statusData.entries()).map(([status, count]) => ({
-    status,
-    count
-  }));
+  return months;
 }

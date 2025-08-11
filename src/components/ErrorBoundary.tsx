@@ -1,137 +1,129 @@
-// src/components/ErrorBoundary.tsx
-'use client'
+// src/components/layout/error-boundary.tsx
+'use client';
 
-import React, { Component, ErrorInfo, ReactNode } from 'react'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-interface Props {
-  children: ReactNode
-  fallback?: ReactNode
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+  errorInfo?: React.ErrorInfo;
 }
 
-interface State {
-  hasError: boolean
-  error?: Error
-  errorInfo?: ErrorInfo
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback?: React.ComponentType<ErrorFallbackProps>;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props)
-    this.state = { hasError: false }
+interface ErrorFallbackProps {
+  error: Error;
+  resetError: () => void;
+}
+
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    // Update state so the next render will show the fallback UI
-    return { hasError: true, error }
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error to your error reporting service
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
-    
-    this.setState({
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return {
+      hasError: true,
       error,
-      errorInfo
-    })
-
-    // Send to error tracking service
-    if (typeof window !== 'undefined') {
-      // You can replace this with Sentry, LogRocket, etc.
-      window.gtag?.('event', 'exception', {
-        description: error.toString(),
-        fatal: false,
-      })
-    }
+    };
   }
 
-  handleRefresh = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
-    window.location.reload()
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+    this.setState({ errorInfo });
   }
 
-  handleGoHome = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
-    window.location.href = '/dashboard'
-  }
+  resetError = () => {
+    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
+  };
 
   render() {
     if (this.state.hasError) {
-      // Custom fallback UI
-      if (this.props.fallback) {
-        return this.props.fallback
-      }
-
+      const FallbackComponent = this.props.fallback || DefaultErrorFallback;
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-            </div>
-            
-            <div className="mt-4 text-center">
-              <h1 className="text-lg font-medium text-gray-900">Something went wrong</h1>
-              <p className="mt-2 text-sm text-gray-600">
-                We're sorry, but something unexpected happened. Our team has been notified.
-              </p>
-            </div>
-
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={this.handleRefresh}
-                className="flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Try Again
-              </button>
-              
-              <button
-                onClick={this.handleGoHome}
-                className="flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Go Home
-              </button>
-            </div>
-
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details className="mt-6">
-                <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
-                  Show error details (Development only)
-                </summary>
-                <div className="mt-2 p-3 bg-gray-100 rounded text-xs font-mono overflow-auto max-h-40">
-                  <div className="text-red-600 font-semibold">Error:</div>
-                  <div className="mb-2">{this.state.error.toString()}</div>
-                  
-                  {this.state.errorInfo && (
-                    <>
-                      <div className="text-red-600 font-semibold">Stack trace:</div>
-                      <div>{this.state.errorInfo.componentStack}</div>
-                    </>
-                  )}
-                </div>
-              </details>
-            )}
-          </div>
-        </div>
-      )
+        <FallbackComponent
+          error={this.state.error!}
+          resetError={this.resetError}
+        />
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }
 
-// Hook version for functional components
-export function useErrorHandler() {
-  return (error: Error, errorInfo?: ErrorInfo) => {
-    console.error('Error caught by useErrorHandler:', error, errorInfo)
-    
-    // Send to error tracking service
-    if (typeof window !== 'undefined') {
-      window.gtag?.('event', 'exception', {
-        description: error.toString(),
-        fatal: false,
-      })
+function DefaultErrorFallback({ error, resetError }: ErrorFallbackProps) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-lg">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 text-red-600">
+            <AlertTriangle className="h-full w-full" />
+          </div>
+          <CardTitle className="text-xl text-red-600">
+            Something went wrong
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-600 text-center">
+            We're sorry, but something unexpected happened. Please try refreshing the page.
+          </p>
+          
+          {isDevelopment && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-sm font-medium text-red-800 mb-2">
+                Error Details (Development)
+              </p>
+              <pre className="text-xs text-red-700 overflow-auto max-h-32">
+                {error.message}
+                {error.stack}
+              </pre>
+            </div>
+          )}
+          
+          <div className="flex gap-2 justify-center">
+            <Button 
+              onClick={resetError}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Try Again
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => window.location.reload()}
+            >
+              Refresh Page
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Hook for using error boundary in functional components
+export function useErrorBoundary() {
+  const [error, setError] = React.useState<Error | null>(null);
+
+  React.useEffect(() => {
+    if (error) {
+      throw error;
     }
-  }
+  }, [error]);
+
+  const captureError = React.useCallback((error: Error) => {
+    setError(error);
+  }, []);
+
+  return captureError;
 }
